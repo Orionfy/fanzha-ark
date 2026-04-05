@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -7,7 +8,7 @@
     <title>反诈方舟 - 沉浸式反诈教育平台</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -68,6 +69,9 @@
             line-height:1.6;
             overflow-x:hidden;
         }
+        h1,h2,.section-title,.main-headline{
+            font-family:'Noto Serif SC','Inter',serif;
+        }
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:var(--gray-100);}
         ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:var(--radius-full);}
@@ -80,13 +84,94 @@
             z-index:0;display:block;
             pointer-events:none;
         }
+        /* 引导页占据真实文档流，主页内容自然跟在后面 */
         .welcome-section{
-            position:relative;z-index:20;
+            position:relative;
+            z-index:20;
             height:100vh;width:100%;
             display:flex;align-items:center;justify-content:center;
             text-align:center;
+            /* 滑出动画：向上平移离开视口 */
+            transition:transform 0.75s cubic-bezier(0.86,0,0.07,1), opacity 0.5s ease;
+            will-change:transform,opacity;
+            overflow:hidden;
+        }
+        /* 进入主页后：引导页向上飞走，但仍占文档流（不影响下面内容定位） */
+        .welcome-section.exited{
+            transform:translateY(-100%);
+            opacity:0;
+            pointer-events:none;
+            /* 高度折叠，让主页顶到正确位置 */
+            height:0;
+            overflow:hidden;
+            transition:transform 0.75s cubic-bezier(0.86,0,0.07,1),
+                        opacity 0.5s ease,
+                        height 0s linear 0.75s;
+        }
+        /* 返回时恢复 */
+        .welcome-section.returning{
+            transform:translateY(0);
+            opacity:1;
+            height:100vh;
+            pointer-events:auto;
+            transition:transform 0.75s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease;
         }
         .welcome-content{max-width:900px;padding:2rem;position:relative;z-index:10;}
+
+        /* 引导页下滑提示增强 */
+        .scroll-hint-arrow{
+            position:absolute;bottom:80px;left:50%;
+            transform:translateX(-50%);
+            z-index:25;
+            display:flex;flex-direction:column;align-items:center;gap:6px;
+            opacity:0;
+            animation:fadeIn 1s ease 1.5s forwards;
+            pointer-events:none;
+        }
+        .scroll-hint-arrow .arrow-chevron{
+            width:28px;height:28px;
+            border-right:2px solid rgba(255,255,255,0.45);
+            border-bottom:2px solid rgba(255,255,255,0.45);
+            transform:rotate(45deg);
+            animation:bounceDown 1.5s ease-in-out infinite;
+        }
+        .scroll-hint-arrow .arrow-chevron:nth-child(2){
+            animation-delay:0.18s;
+            opacity:0.65;
+        }
+        .scroll-hint-arrow .arrow-chevron:nth-child(3){
+            animation-delay:0.36s;
+            opacity:0.35;
+        }
+        @keyframes bounceDown{
+            0%,100%{transform:rotate(45deg) translateY(0);}
+            50%{transform:rotate(45deg) translateY(7px);}
+        }
+        /* 阻滞感：弹簧回弹效果 */
+        .welcome-section.resist{
+            transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        /* 顶部返回引导箭头 */
+        #backToWelcomeBtn{
+            position:fixed;top:88px;right:20px;
+            z-index:200;
+            width:38px;height:38px;
+            background:rgba(15,23,42,0.7);
+            border:1px solid rgba(56,189,248,0.3);
+            border-radius:50%;
+            display:none;
+            align-items:center;justify-content:center;
+            cursor:pointer;
+            backdrop-filter:blur(10px);
+            color:rgba(255,255,255,0.7);
+            transition:all 0.3s ease;
+            font-size:0.85rem;
+        }
+        #backToWelcomeBtn:hover{
+            background:rgba(6,182,212,0.2);
+            color:white;
+            border-color:rgba(6,182,212,0.6);
+        }
         .project-badge{
             display:inline-flex;align-items:center;gap:10px;
             background:rgba(255,255,255,0.06);
@@ -153,27 +238,7 @@
             pointer-events:none;
         }
         @keyframes rippleEffect{to{transform:scale(8);opacity:0;}}
-        .scroll-hint{
-            position:absolute;bottom:40px;left:50%;
-            transform:translateX(-50%);
-            display:flex;flex-direction:column;align-items:center;gap:8px;
-            cursor:pointer;opacity:0;
-            animation:fadeIn 1s ease 1.2s forwards;z-index:20;
-        }
-        .mouse-icon{
-            width:26px;height:40px;
-            border:2px solid rgba(255,255,255,0.35);
-            border-radius:20px;position:relative;
-        }
-        .mouse-icon::before{
-            content:'';position:absolute;
-            width:4px;height:8px;
-            background:rgba(255,255,255,0.7);
-            left:50%;transform:translateX(-50%);top:8px;
-            border-radius:2px;animation:scrollWheel 2s infinite;
-        }
-        @keyframes scrollWheel{0%{opacity:1;transform:translateX(-50%) translateY(0);}80%{opacity:0;transform:translateX(-50%) translateY(14px);}100%{opacity:0;transform:translateX(-50%) translateY(14px);}}
-        .scroll-hint span{font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+        .scroll-hint{display:none;}
         @keyframes fadeIn{to{opacity:1;}}
 
         /* ===== 过渡蒙层 ===== */
@@ -307,27 +372,77 @@
             background:linear-gradient(180deg,transparent,var(--gray-300));
         }
         .hero-banner{
-            background:linear-gradient(135deg,var(--white) 0%,var(--gray-50) 100%);
+            background:linear-gradient(135deg,var(--brand-deep) 0%,var(--brand-blue) 60%,#1e3a8a 100%);
             border-radius:var(--radius-2xl);
-            padding:var(--spacing-3xl) var(--spacing-2xl);
+            padding:0;
             margin:var(--spacing-2xl) 0;
-            border:1px solid var(--gray-100);
-            box-shadow:var(--shadow-sm);
+            border:1px solid rgba(56,189,248,0.15);
+            box-shadow:0 8px 32px rgba(6,182,212,0.12);
             transition:all 0.3s ease;
             position:relative;overflow:hidden;
+            min-height:260px;
         }
         .hero-banner::before{
             content:'';position:absolute;
-            top:-1px;left:0;width:100%;height:3px;
+            top:0;left:0;width:100%;height:3px;
             background:linear-gradient(90deg,var(--brand-cyan),var(--accent-color),var(--brand-purple));
-            opacity:0.6;
+            opacity:0.9;z-index:2;
+        }
+        /* 装饰圆形背景 */
+        .hero-banner::after{
+            content:'';position:absolute;
+            right:-60px;top:-60px;
+            width:320px;height:320px;
+            border-radius:50%;
+            background:radial-gradient(circle,rgba(56,189,248,0.12) 0%,transparent 70%);
+            pointer-events:none;
         }
         .hero-banner:hover{
             transform:translateY(-5px);
-            box-shadow:var(--shadow-xl);
+            box-shadow:0 16px 48px rgba(6,182,212,0.2);
         }
-        .hero-title{font-size:clamp(1.5rem,4vw,2rem);font-weight:700;color:var(--gray-800);}
-        .hero-subtitle{font-size:clamp(1rem,2vw,1.2rem);color:var(--gray-500);}
+        .hero-banner-inner{
+            display:flex;align-items:stretch;min-height:260px;position:relative;z-index:1;
+        }
+        .hero-banner-content{
+            flex:1;padding:var(--spacing-3xl) var(--spacing-2xl);
+            display:flex;flex-direction:column;justify-content:center;
+        }
+        .hero-banner-visual{
+            width:280px;flex-shrink:0;
+            display:flex;align-items:center;justify-content:center;
+            padding:var(--spacing-2xl);
+            position:relative;
+        }
+        .hero-banner-shield{
+            width:120px;height:120px;
+            background:rgba(255,255,255,0.06);
+            border:2px solid rgba(56,189,248,0.3);
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            font-size:3.5rem;
+            color:rgba(255,255,255,0.85);
+            box-shadow:0 0 40px rgba(56,189,248,0.2),inset 0 0 20px rgba(56,189,248,0.05);
+            animation:shieldPulse 3s ease-in-out infinite;
+        }
+        @keyframes shieldPulse{
+            0%,100%{box-shadow:0 0 40px rgba(56,189,248,0.2),inset 0 0 20px rgba(56,189,248,0.05);}
+            50%{box-shadow:0 0 60px rgba(56,189,248,0.35),inset 0 0 30px rgba(56,189,248,0.1);}
+        }
+        .hero-banner-visual .orbit-ring{
+            position:absolute;
+            border:1px solid rgba(56,189,248,0.15);
+            border-radius:50%;
+            animation:orbitSpin 12s linear infinite;
+        }
+        .hero-banner-visual .orbit-ring.r1{width:160px;height:160px;}
+        .hero-banner-visual .orbit-ring.r2{width:210px;height:210px;animation-direction:reverse;animation-duration:18s;}
+        @keyframes orbitSpin{to{transform:rotate(360deg);}}
+        @media(max-width:768px){
+            .hero-banner-visual{display:none;}
+        }
+        .hero-title{font-size:clamp(1.5rem,4vw,2rem);font-weight:700;color:white;}
+        .hero-subtitle{font-size:clamp(0.95rem,2vw,1.1rem);color:rgba(255,255,255,0.65);}
         .info-alert-custom{
             background:linear-gradient(135deg,#f0f9ff 0%,#f8fafc 100%);
             border:1px solid #bae6fd;
@@ -341,19 +456,38 @@
         .feature-card{
             background:var(--white);
             border-radius:var(--radius-xl);
-            padding:var(--spacing-2xl) var(--spacing-xl);
+            padding:0;
             text-align:center;
             transition:all 0.35s ease;
             border:1px solid var(--gray-100);
             height:100%;cursor:pointer;
             position:relative;overflow:hidden;
+            display:flex;flex-direction:column;
+        }
+        .feature-card-img{
+            width:100%;height:160px;overflow:hidden;position:relative;
+            border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+        }
+        .feature-card-img img{
+            width:100%;height:100%;object-fit:cover;
+            transition:transform 0.5s ease;
+            filter:brightness(0.82) saturate(1.15);
+        }
+        .feature-card:hover .feature-card-img img{transform:scale(1.08);}
+        .feature-card-img-overlay{
+            position:absolute;top:0;left:0;width:100%;height:100%;
+            background:linear-gradient(180deg,transparent 40%,rgba(15,23,42,0.55) 100%);
+        }
+        .feature-card-body{
+            padding:var(--spacing-xl) var(--spacing-xl) var(--spacing-2xl);
+            flex:1;display:flex;flex-direction:column;align-items:center;
         }
         .feature-card::before{
             content:'';position:absolute;
             top:0;left:0;width:100%;height:3px;
             background:linear-gradient(90deg,var(--brand-cyan),var(--accent-color));
             transform:scaleX(0);transition:transform 0.35s ease;
-            transform-origin:left;
+            transform-origin:left;z-index:2;
         }
         .feature-card:hover{
             transform:translateY(-8px);
@@ -362,9 +496,9 @@
         }
         .feature-card:hover::before{transform:scaleX(1);}
         .feature-icon{
-            font-size:3.2rem;
+            font-size:2.6rem;
             color:var(--brand-blue);
-            margin-bottom:var(--spacing-lg);
+            margin-bottom:var(--spacing-md);
             transition:all 0.3s ease;
         }
         .feature-card:hover .feature-icon{
@@ -379,12 +513,20 @@
             box-shadow:var(--shadow-sm);
             border:1px solid var(--gray-100);
             transition:all 0.3s ease;height:100%;
+            position:relative;overflow:hidden;
+        }
+        .stat-card::after{
+            content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
+            background:linear-gradient(90deg,var(--brand-cyan),var(--accent-color));
+            opacity:0;transition:opacity 0.3s ease;
         }
         .stat-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);}
+        .stat-card:hover::after{opacity:1;}
         .stat-number{
             font-size:clamp(2rem,5vw,2.8rem);
             font-weight:700;color:var(--brand-deep);
             margin-bottom:var(--spacing-sm);
+            font-family:'Noto Serif SC',serif;
         }
         .publish-card,.tool-card,.about-card{
             background:var(--white);
@@ -399,6 +541,116 @@
             box-shadow:var(--shadow-lg);
             transform:translateY(-3px);
         }
+        /* 工具区块配图 */
+        .tool-section-hero{
+            width:100%;border-radius:var(--radius-xl);overflow:hidden;
+            margin-bottom:var(--spacing-xl);height:200px;position:relative;
+        }
+        .tool-section-hero img{
+            width:100%;height:100%;object-fit:cover;
+            filter:brightness(0.7) saturate(1.2);
+        }
+        .tool-section-hero-overlay{
+            position:absolute;inset:0;
+            background:linear-gradient(90deg,rgba(10,15,28,0.85) 0%,rgba(10,15,28,0.3) 60%,transparent 100%);
+            display:flex;align-items:center;padding:var(--spacing-2xl);
+        }
+        .tool-section-hero-text{color:white;}
+        .tool-section-hero-text h3{font-size:1.6rem;font-weight:700;margin-bottom:0.4rem;font-family:'Noto Serif SC',serif;}
+        .tool-section-hero-text p{opacity:0.8;margin:0;font-size:0.95rem;}
+        /* 关于区块横幅 */
+        .about-hero-img{
+            width:100%;border-radius:var(--radius-xl);overflow:hidden;
+            margin-bottom:var(--spacing-xl);height:180px;position:relative;
+        }
+        .about-hero-img img{width:100%;height:100%;object-fit:cover;filter:brightness(0.6) saturate(0.9);}
+        .about-hero-img-overlay{
+            position:absolute;inset:0;
+            background:linear-gradient(135deg,rgba(10,15,60,0.8),rgba(30,58,95,0.5));
+            display:flex;align-items:center;justify-content:center;
+        }
+        .about-hero-img-overlay span{
+            color:white;font-size:1.3rem;font-weight:700;letter-spacing:2px;
+            font-family:'Noto Serif SC',serif;text-shadow:0 2px 10px rgba(0,0,0,0.4);
+        }
+        /* 训练营横幅 */
+        .training-hero-img{
+            width:100%;border-radius:var(--radius-xl);overflow:hidden;
+            margin-bottom:var(--spacing-2xl);height:220px;position:relative;
+        }
+        .training-hero-img img{width:100%;height:100%;object-fit:cover;filter:brightness(0.65) saturate(1.1);}
+        .training-hero-img-overlay{
+            position:absolute;inset:0;
+            background:linear-gradient(180deg,transparent 30%,rgba(10,15,28,0.75) 100%);
+            display:flex;align-items:flex-end;padding:var(--spacing-xl);
+        }
+        .training-hero-img-overlay p{
+            color:rgba(255,255,255,0.85);font-size:0.9rem;margin:0;
+            display:flex;align-items:center;gap:8px;
+        }
+        /* 树洞区块 */
+        .treehole-banner{
+            width:100%;border-radius:var(--radius-xl);overflow:hidden;
+            margin-bottom:var(--spacing-xl);height:160px;position:relative;
+        }
+        .treehole-banner img{width:100%;height:100%;object-fit:cover;filter:brightness(0.6) saturate(0.8);}
+        .treehole-banner-overlay{
+            position:absolute;inset:0;
+            background:linear-gradient(135deg,rgba(88,28,135,0.75),rgba(30,58,95,0.5));
+            display:flex;align-items:center;padding:var(--spacing-2xl);
+            gap:16px;
+        }
+        .treehole-banner-overlay i{font-size:2.5rem;color:rgba(255,255,255,0.9);}
+        .treehole-banner-text{color:white;}
+        .treehole-banner-text h4{font-size:1.25rem;font-weight:700;margin:0;font-family:'Noto Serif SC',serif;}
+        .treehole-banner-text p{opacity:0.8;margin:0;font-size:0.9rem;}
+        /* 个人档案区块 */
+        .profile-banner{
+            width:100%;border-radius:var(--radius-xl);overflow:hidden;
+            margin-bottom:var(--spacing-xl);height:160px;position:relative;
+            background:linear-gradient(135deg,#0a1628 0%,#0f2847 50%,#1a3a6e 100%);
+            border:1px solid rgba(56,189,248,0.15);
+        }
+        .profile-banner-svg{
+            position:absolute;inset:0;width:100%;height:100%;
+        }
+        .profile-banner-overlay{
+            position:absolute;inset:0;
+            display:flex;align-items:center;padding:var(--spacing-2xl);
+        }
+        .profile-banner-overlay span{
+            color:white;font-size:1.2rem;font-weight:700;
+            font-family:'Noto Serif SC',serif;letter-spacing:1px;
+            text-shadow:0 2px 12px rgba(0,0,0,0.5);
+        }
+        /* 团队成员卡片优化 */
+        .team-member{
+            border-radius:var(--radius-lg);
+            border:1px solid var(--gray-100);
+            transition:all 0.3s ease;
+            background:var(--white);
+        }
+        .team-member:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);}
+        .team-icon{
+            width:60px;height:60px;border-radius:50%;
+            background:linear-gradient(135deg,var(--brand-cyan),var(--accent-color));
+            display:flex;align-items:center;justify-content:center;color:white;
+        }
+        /* ===== 电话列表 ===== */
+        .phone-list li{
+            padding:0.65rem 0.8rem;
+            border-bottom:1px solid var(--gray-100);
+            display:flex;align-items:center;gap:10px;
+            font-size:0.92rem;
+            transition:background 0.2s ease;
+            border-radius:var(--radius-sm);
+        }
+        .phone-list li:last-child{border-bottom:none;}
+        .phone-list li::before{
+            content:'📞';font-size:0.85rem;flex-shrink:0;
+        }
+        .phone-list li:hover{background:var(--gray-50);}
+        /* ===== 步骤条 ===== */
         .step-item{
             padding:var(--spacing-lg) 0;
             border-bottom:1px solid var(--gray-100);
@@ -413,21 +665,90 @@
             border-radius:50%;
             display:inline-flex;align-items:center;justify-content:center;
             font-weight:bold;margin-right:var(--spacing-md);flex-shrink:0;
+            font-size:0.85rem;
+            box-shadow:0 2px 8px rgba(30,58,95,0.25);
         }
+        /* ===== 统计数字动效 ===== */
+        .stat-label{
+            color:var(--gray-500);font-size:0.85rem;font-weight:500;letter-spacing:0.3px;
+        }
+        /* ===== 防诈清单优化 ===== */
+        #tools .tool-card p{
+            padding:0.5rem 0.75rem;
+            border-radius:var(--radius-sm);
+            transition:background 0.2s;
+            margin-bottom:0.4rem!important;
+            font-size:0.92rem;
+        }
+        #tools .tool-card p:hover{background:var(--gray-50);}
+        /* ===== 自查清单 check 样式 ===== */
+        .checklist-item{
+            display:flex;align-items:flex-start;gap:10px;
+            padding:0.55rem 0.75rem;
+            border-radius:var(--radius-sm);
+            margin-bottom:0.4rem;
+            font-size:0.92rem;
+            transition:background 0.2s;
+            line-height:1.5;
+        }
+        .checklist-item:hover{background:var(--gray-50);}
+        .checklist-item i{color:var(--success-color);flex-shrink:0;margin-top:2px;}
+        /* ===== 紧急按钮优化 ===== */
         .emergency-btn{
             background-color:var(--danger-color);
             color:var(--white);
-            padding:0.75rem 1.5rem;
+            padding:0.85rem 1.5rem;
             border-radius:var(--radius-lg);
             text-decoration:none;
             display:inline-flex;align-items:center;gap:0.6rem;
             transition:all 0.3s ease;font-weight:600;
+            font-size:1.05rem;
         }
         .emergency-btn:hover{
             background-color:#dc2626;
             transform:translateY(-2px);
-            box-shadow:var(--shadow-md);color:white;
+            box-shadow:0 8px 20px rgba(239,68,68,0.35);color:white;
         }
+        /* ===== 信息提示框优化 ===== */
+        .info-alert-custom{
+            background:linear-gradient(135deg,#f0f9ff 0%,#f8fafc 100%);
+            border:1px solid #bae6fd;
+            border-radius:var(--radius-lg);
+            padding:var(--spacing-lg) var(--spacing-xl);
+            display:flex;align-items:flex-start;gap:12px;
+        }
+        .info-alert-custom i{color:var(--info-color);flex-shrink:0;margin-top:2px;font-size:1.1rem;}
+        /* ===== section 标题下划线优化 ===== */
+        .section-title{
+            font-size:clamp(1.8rem,5vw,2.5rem);
+            font-weight:700;color:var(--brand-deep);
+            margin-bottom:var(--spacing-md);
+            display:inline-block;position:relative;
+        }
+        .section-title::after{
+            content:'';position:absolute;
+            bottom:-12px;left:50%;transform:translateX(-50%);
+            width:70px;height:4px;
+            background:linear-gradient(90deg,var(--brand-cyan),var(--accent-color));
+            border-radius:var(--radius-full);
+        }
+        /* ===== 快捷统计横条 ===== */
+        .stats-strip{
+            background:linear-gradient(135deg,var(--brand-deep),var(--brand-blue));
+            border-radius:var(--radius-xl);
+            padding:var(--spacing-2xl) var(--spacing-xl);
+            margin:var(--spacing-2xl) 0;
+            display:flex;justify-content:space-around;align-items:center;
+            flex-wrap:wrap;gap:var(--spacing-lg);
+            position:relative;overflow:hidden;
+        }
+        .stats-strip::before{
+            content:'';position:absolute;inset:0;
+            background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .stat-strip-item{text-align:center;color:white;position:relative;z-index:1;}
+        .stat-strip-num{font-size:2rem;font-weight:700;line-height:1;font-family:'Noto Serif SC',serif;}
+        .stat-strip-label{font-size:0.82rem;opacity:0.75;margin-top:4px;letter-spacing:0.5px;}
 
         /* ===== 各板块装饰 ===== */
         #training{background-color:var(--gray-50);}
@@ -484,7 +805,58 @@
             transform:translateX(-50%);
         }
 
-        /* ===== 页脚 ===== */
+        /* ===== 实用工具并列排版 ===== */
+        .tools-dual-col{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:var(--spacing-xl);
+            margin-bottom:var(--spacing-xl);
+        }
+        @media(max-width:768px){
+            .tools-dual-col{grid-template-columns:1fr;}
+        }
+        .tools-dual-col .tool-card{margin-bottom:0;height:100%;}
+
+        /* ===== 合规承诺重新排版 ===== */
+        .compliance-grid{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:var(--spacing-lg);
+            margin-top:var(--spacing-lg);
+        }
+        @media(max-width:576px){
+            .compliance-grid{grid-template-columns:1fr;}
+        }
+        .compliance-item{
+            display:flex;
+            gap:14px;
+            align-items:flex-start;
+            padding:var(--spacing-lg);
+            background:var(--gray-50);
+            border-radius:var(--radius-lg);
+            border:1px solid var(--gray-100);
+            transition:box-shadow 0.2s;
+        }
+        .compliance-item:hover{box-shadow:var(--shadow-md);}
+        .compliance-item-icon{
+            width:40px;height:40px;flex-shrink:0;
+            border-radius:var(--radius-md);
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.2rem;
+        }
+        .compliance-item-icon.ci-blue{background:rgba(59,130,246,0.1);color:var(--accent-color);}
+        .compliance-item-icon.ci-green{background:rgba(16,185,129,0.1);color:var(--success-color);}
+        .compliance-item-body h6{font-weight:700;font-size:0.9rem;margin-bottom:4px;color:var(--gray-800);}
+        .compliance-item-body p{font-size:0.83rem;color:var(--gray-500);margin:0;line-height:1.6;}
+        .compliance-footer{
+            margin-top:var(--spacing-lg);
+            padding:var(--spacing-md) var(--spacing-lg);
+            background:var(--gray-50);
+            border-radius:var(--radius-md);
+            text-align:center;
+            border-top:1px solid var(--gray-100);
+        }
+        
         footer{
             background-color:var(--gray-900);
             padding:var(--spacing-2xl) 0;
@@ -506,21 +878,465 @@
             box-shadow:var(--shadow-2xl)!important;
         }
 
+        /* ===== 电话列表优化 ===== */
+        .phone-list li{
+            padding:0.65rem 0.8rem;
+            border-bottom:1px solid var(--gray-100);
+            display:flex;align-items:center;gap:10px;
+            font-size:0.93rem;transition:background 0.2s;
+            border-radius:var(--radius-sm);
+        }
+        .phone-list li:last-child{border-bottom:none;}
+        .phone-list li:hover{background:var(--gray-50);}
+        .phone-list li strong{
+            color:var(--brand-deep);min-width:120px;flex-shrink:0;
+        }
+        .phone-list li::before{
+            content:'\F4CF';font-family:'bootstrap-icons';
+            color:var(--brand-cyan);font-size:0.85rem;flex-shrink:0;
+        }
+
+        /* ===== 步骤条优化 ===== */
+        .step-item{
+            padding:var(--spacing-lg) var(--spacing-md);
+            border-bottom:1px solid var(--gray-100);
+            transition:background 0.2s;
+            border-radius:var(--radius-sm);
+        }
+        .step-item:last-child{border-bottom:none;}
+        .step-item:hover{background:var(--gray-50);}
+        .step-number{
+            width:36px;height:36px;
+            background:linear-gradient(135deg,var(--brand-deep),var(--accent-color));
+            color:var(--white);
+            border-radius:50%;
+            display:inline-flex;align-items:center;justify-content:center;
+            font-weight:bold;margin-right:var(--spacing-md);flex-shrink:0;
+            box-shadow:0 4px 12px rgba(59,130,246,0.3);
+            font-size:0.9rem;
+        }
+
+        /* ===== stat-label ===== */
+        .stat-label{
+            color:var(--gray-500);font-size:0.85rem;font-weight:500;
+            letter-spacing:0.3px;
+        }
+
+        /* ===== 防诈自查清单优化 ===== */
+        .check-item,.checklist-item{
+            display:flex;align-items:flex-start;gap:10px;
+            padding:0.5rem 0.6rem;border-radius:var(--radius-sm);
+            transition:background 0.2s;font-size:0.93rem;
+            margin-bottom:0.3rem;
+        }
+        .check-item:hover,.checklist-item:hover{background:var(--gray-50);}
+        .check-item i,.checklist-item i{color:var(--success-color);flex-shrink:0;margin-top:2px;font-size:1rem;}
+
+        /* ===== 紧急按钮提升 ===== */
+        .emergency-btn{
+            background-color:var(--danger-color);
+            color:var(--white);
+            padding:0.9rem 1.5rem;
+            border-radius:var(--radius-lg);
+            text-decoration:none;
+            display:inline-flex;align-items:center;gap:0.6rem;
+            transition:all 0.3s ease;font-weight:600;
+            font-size:1rem;
+            box-shadow:0 4px 14px rgba(239,68,68,0.3);
+        }
+        .emergency-btn:hover{
+            background-color:#dc2626;
+            transform:translateY(-2px);
+            box-shadow:0 8px 20px rgba(239,68,68,0.4);color:white;
+        }
+
+        /* ===== 欢迎屏 project-badge 修复 ===== */
+        .project-badge{color:var(--color-text-main);}
+
+        /* ===== 大厂风导航栏重设计 ===== */
+        .navbar-custom{
+            height:60px;
+            background-color:transparent!important;
+            padding:0;z-index:1000;
+            transition:all 0.3s ease;
+            border-bottom:1px solid transparent;
+        }
+        .navbar-custom.scrolled{
+            height:60px;
+            background-color:rgba(255,255,255,0.92)!important;
+            backdrop-filter:blur(20px);
+            -webkit-backdrop-filter:blur(20px);
+            border-bottom:1px solid rgba(0,0,0,0.06);
+            box-shadow:0 1px 12px rgba(0,0,0,0.07);
+        }
+        .navbar-custom .container{height:100%;align-items:center;}
+        /* Logo组合 */
+        .nav-logo-wrap{
+            display:flex;align-items:center;gap:9px;
+            text-decoration:none;color:inherit;
+            flex-shrink:0;
+        }
+        .nav-logo-icon{
+            width:32px;height:32px;flex-shrink:0;
+            display:flex;align-items:center;justify-content:center;
+        }
+        .nav-logo-text-wrap{display:flex;flex-direction:column;line-height:1;}
+        .nav-logo-title{
+            font-family:'Noto Serif SC',serif;
+            font-size:1.05rem;font-weight:700;
+            color:white;
+            letter-spacing:0.02em;
+            transition:color 0.3s;
+        }
+        .navbar-custom.scrolled .nav-logo-title{color:var(--brand-deep);}
+        .nav-logo-sub{
+            font-size:0.6rem;letter-spacing:0.18em;
+            color:rgba(255,255,255,0.45);
+            text-transform:uppercase;
+            margin-top:2px;
+            transition:color 0.3s;
+        }
+        .navbar-custom.scrolled .nav-logo-sub{color:var(--gray-400);}
+        /* 导航链接 */
+        .navbar-custom .nav-link{
+            position:relative;
+            color:rgba(255,255,255,0.75)!important;
+            font-size:0.88rem;font-weight:500;
+            padding:6px 12px!important;
+            border-radius:6px;
+            letter-spacing:0.02em;
+            transition:all 0.2s ease;
+        }
+        .navbar-custom.scrolled .nav-link{color:var(--gray-600)!important;}
+        .navbar-custom .nav-link:hover{
+            color:white!important;
+            background:rgba(255,255,255,0.1);
+        }
+        .navbar-custom.scrolled .nav-link:hover{
+            color:var(--brand-deep)!important;
+            background:var(--gray-50);
+        }
+        .navbar-custom .nav-link.active{
+            color:white!important;font-weight:600;
+            background:rgba(255,255,255,0.12);
+        }
+        .navbar-custom.scrolled .nav-link.active{
+            color:var(--brand-cyan)!important;
+            background:rgba(6,182,212,0.08);
+        }
+        /* 导航右侧CTA */
+        .nav-cta-btn{
+            display:inline-flex;align-items:center;gap:6px;
+            background:var(--brand-cyan);
+            color:white!important;
+            font-size:0.82rem;font-weight:600;
+            padding:7px 16px!important;
+            border-radius:20px!important;
+            letter-spacing:0.02em;
+            transition:all 0.2s ease!important;
+            box-shadow:0 2px 10px rgba(6,182,212,0.3);
+        }
+        .nav-cta-btn:hover{
+            background:#0891b2!important;
+            transform:translateY(-1px);
+            box-shadow:0 4px 16px rgba(6,182,212,0.4)!important;
+            color:white!important;
+        }
+        .navbar-custom.scrolled .nav-cta-btn{
+            background:var(--brand-cyan);
+            color:white!important;
+        }
+        @media(max-width:992px){
+            .navbar-custom .navbar-collapse{
+                background:rgba(10,15,28,0.97);
+                backdrop-filter:blur(20px);
+                border-radius:12px;
+                margin-top:8px;
+                padding:12px;
+                box-shadow:0 8px 32px rgba(0,0,0,0.3);
+                border:1px solid rgba(255,255,255,0.06);
+            }
+            .navbar-custom.scrolled .navbar-collapse{
+                background:rgba(255,255,255,0.98);
+                border:1px solid var(--gray-100);
+                box-shadow:0 8px 32px rgba(0,0,0,0.12);
+            }
+            .navbar-custom.scrolled .navbar-collapse .nav-link{color:var(--gray-700)!important;}
+            .nav-logo-sub{display:none;}
+        }
+        /* 汉堡按钮美化 */
+        .navbar-toggler{
+            border:1px solid rgba(255,255,255,0.2)!important;
+            border-radius:8px!important;
+            padding:5px 9px!important;
+            color:white!important;
+        }
+        .navbar-custom.scrolled .navbar-toggler{
+            border-color:var(--gray-200)!important;
+            color:var(--gray-700)!important;
+        }
+        .navbar-toggler:focus{box-shadow:none!important;}
+
+        /* ===== 功能模块卡片重塑 ===== */
+        .module-grid{
+            display:grid;
+            grid-template-columns:repeat(2,1fr);
+            grid-template-rows:repeat(2,1fr);
+            gap:16px;
+            margin:var(--spacing-2xl) 0;
+        }
+        @media(max-width:576px){.module-grid{grid-template-columns:1fr;}}
+        .module-card{
+            position:relative;overflow:hidden;
+            border-radius:16px;
+            min-height:148px;
+            cursor:pointer;
+            border:1px solid var(--gray-100);
+            transition:transform 0.3s ease, box-shadow 0.3s ease;
+            display:flex;align-items:flex-end;
+        }
+        .module-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.12);}
+        /* 各卡片背景渐变 */
+        .mc-scene{background:linear-gradient(135deg,#0f2744 0%,#1a4a8a 60%,#1e6baa 100%);}
+        .mc-turtle{background:linear-gradient(135deg,#1a0f44 0%,#3d1a8a 60%,#5a1aaa 100%);}
+        .mc-tree{background:linear-gradient(135deg,#0a2a1a 0%,#1a5a3a 60%,#1a7a4a 100%);}
+        .mc-tools{background:linear-gradient(135deg,#2a1a0a 0%,#7a4a1a 60%,#aa6a1a 100%);}
+        /* 装饰图案层 */
+        .module-card-deco{
+            position:absolute;inset:0;pointer-events:none;overflow:hidden;
+        }
+        /* 动态光圈 */
+        .module-card-glow{
+            position:absolute;
+            border-radius:50%;
+            background:rgba(255,255,255,0.06);
+            transition:transform 0.4s ease;
+        }
+        .module-card:hover .module-card-glow{transform:scale(1.3);}
+        .mc-scene .module-card-glow{width:160px;height:160px;top:-40px;right:-40px;}
+        .mc-turtle .module-card-glow{width:140px;height:140px;top:-30px;right:-20px;}
+        .mc-tree .module-card-glow{width:150px;height:150px;top:-35px;right:-35px;}
+        .mc-tools .module-card-glow{width:130px;height:130px;top:-25px;right:-25px;}
+        /* 内容 */
+        .module-card-body{
+            position:relative;z-index:2;
+            padding:20px 22px;
+            width:100%;
+            background:linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+        }
+        .module-card-icon{
+            width:38px;height:38px;
+            background:rgba(255,255,255,0.12);
+            border-radius:10px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.15rem;color:white;
+            margin-bottom:10px;
+            backdrop-filter:blur(4px);
+            border:1px solid rgba(255,255,255,0.15);
+            transition:background 0.3s;
+        }
+        .module-card:hover .module-card-icon{background:rgba(255,255,255,0.22);}
+        .module-card-title{
+            font-size:1rem;font-weight:700;color:white;
+            margin-bottom:3px;letter-spacing:0.02em;
+            font-family:'Noto Serif SC',serif;
+        }
+        .module-card-desc{
+            font-size:0.78rem;color:rgba(255,255,255,0.65);
+            margin:0;line-height:1.4;
+        }
+        .module-card-arrow{
+            position:absolute;top:18px;right:18px;z-index:2;
+            width:28px;height:28px;
+            background:rgba(255,255,255,0.1);
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            color:rgba(255,255,255,0.6);font-size:0.75rem;
+            transition:all 0.3s;
+            border:1px solid rgba(255,255,255,0.1);
+        }
+        .module-card:hover .module-card-arrow{
+            background:rgba(255,255,255,0.22);
+            color:white;
+            transform:translate(2px,-2px);
+        }
+        /* 装饰几何线 */
+        .mc-grid-lines{
+            position:absolute;inset:0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size:28px 28px;
+        }
+
+        /* ===== 测防诈人格卡片重设计 ===== */
+        .personality-card{
+            position:relative;overflow:hidden;
+            border-radius:var(--radius-xl);
+            min-height:200px;
+            cursor:pointer;
+            border:none;
+            background:linear-gradient(125deg,#0c1a3a 0%,#1a2d5a 35%,#0f3460 65%,#1a1a3a 100%);
+            box-shadow:0 8px 32px rgba(10,15,60,0.25);
+            transition:transform 0.3s ease,box-shadow 0.3s ease;
+            display:flex;align-items:center;
+        }
+        .personality-card:hover{
+            transform:translateY(-5px);
+            box-shadow:0 20px 48px rgba(10,15,60,0.35);
+        }
+        /* 背景装饰：问卷/脑图视觉 */
+        .pc-bg-deco{
+            position:absolute;inset:0;pointer-events:none;overflow:hidden;
+        }
+        /* 右侧脑图装饰SVG */
+        .pc-brain-svg{
+            position:absolute;right:-10px;top:50%;
+            transform:translateY(-50%);
+            opacity:0.12;
+            width:260px;height:260px;
+        }
+        /* 扫描线动效 */
+        .pc-scanline{
+            position:absolute;left:0;right:0;
+            height:1px;
+            background:linear-gradient(90deg,transparent,rgba(56,189,248,0.5),transparent);
+            animation:pcscan 4s ease-in-out infinite;
+        }
+        @keyframes pcscan{
+            0%{top:10%;opacity:0;}
+            10%{opacity:1;}
+            90%{opacity:1;}
+            100%{top:90%;opacity:0;}
+        }
+        /* 左侧浮动问卷条 */
+        .pc-question-strip{
+            position:absolute;
+            right:24px;top:50%;transform:translateY(-50%);
+            display:flex;flex-direction:column;gap:8px;
+            opacity:0.18;
+        }
+        .pc-q-bar{
+            height:6px;border-radius:3px;
+            background:linear-gradient(90deg,#38bdf8,#818cf8);
+        }
+        /* 光晕 */
+        .pc-glow-1{
+            position:absolute;
+            width:300px;height:300px;
+            border-radius:50%;
+            background:radial-gradient(circle,rgba(56,189,248,0.12) 0%,transparent 70%);
+            top:-80px;right:10%;
+            pointer-events:none;
+        }
+        .pc-glow-2{
+            position:absolute;
+            width:200px;height:200px;
+            border-radius:50%;
+            background:radial-gradient(circle,rgba(139,92,246,0.1) 0%,transparent 70%);
+            bottom:-60px;right:30%;
+            pointer-events:none;
+        }
+        /* 内容 */
+        .pc-content{
+            position:relative;z-index:2;
+            padding:var(--spacing-2xl) var(--spacing-2xl);
+            flex:1;
+            max-width:560px;
+        }
+        .pc-tag{
+            display:inline-flex;align-items:center;gap:6px;
+            background:rgba(56,189,248,0.12);
+            border:1px solid rgba(56,189,248,0.25);
+            color:#7dd3fc;
+            font-size:0.72rem;font-weight:600;
+            padding:4px 12px;border-radius:20px;
+            letter-spacing:0.08em;
+            margin-bottom:14px;
+        }
+        .pc-title{
+            font-family:'Noto Serif SC',serif;
+            font-size:clamp(1.3rem,3vw,1.7rem);
+            font-weight:700;color:white;
+            margin-bottom:8px;line-height:1.25;
+        }
+        .pc-desc{
+            font-size:0.88rem;color:rgba(255,255,255,0.55);
+            margin-bottom:20px;line-height:1.6;
+        }
+        .pc-btn{
+            display:inline-flex;align-items:center;gap:8px;
+            background:linear-gradient(90deg,#0ea5e9,#3b82f6);
+            color:white;font-size:0.88rem;font-weight:600;
+            padding:10px 22px;border-radius:22px;border:none;
+            cursor:pointer;transition:all 0.3s;
+            box-shadow:0 4px 14px rgba(14,165,233,0.35);
+        }
+        .pc-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(14,165,233,0.5);}
+        /* 右侧统计浮块 */
+        .pc-stats{
+            position:relative;z-index:2;
+            padding:var(--spacing-xl) var(--spacing-2xl) var(--spacing-xl) 0;
+            display:flex;flex-direction:column;gap:14px;
+            min-width:160px;
+        }
+        .pc-stat-item{
+            background:rgba(255,255,255,0.05);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:10px;
+            padding:10px 16px;
+            text-align:center;
+            backdrop-filter:blur(4px);
+        }
+        .pc-stat-num{font-size:1.4rem;font-weight:700;color:white;line-height:1;}
+        .pc-stat-label{font-size:0.68rem;color:rgba(255,255,255,0.45);margin-top:4px;letter-spacing:0.05em;}
+        @media(max-width:768px){
+            .pc-stats{display:none;}
+            .personality-card{min-height:160px;}
+            .pc-content{padding:var(--spacing-xl);}
+        }
+
         /* ===== 响应式 ===== */
         @media(max-width:768px){
             .section{padding:var(--spacing-2xl) 0;}
             .deco-glow{display:none!important;}
             .deco-dots,.deco-line{display:none!important;}
+            .training-hero-img,.tool-section-hero,.about-hero-img,.treehole-banner{height:130px;}
+            .profile-banner{height:130px;}
+            .stats-strip{padding:var(--spacing-xl) var(--spacing-md);}
+            .stat-strip-num{font-size:1.5rem;}
+            .hero-banner{min-height:200px;}
+            .hero-banner-content{padding:var(--spacing-2xl) var(--spacing-lg);}
+            .section-title{font-size:1.6rem;}
+            .stat-card{padding:var(--spacing-lg) var(--spacing-md);}
+            .stat-number{font-size:2rem;}
+            .feature-card-img{height:130px;}
+            .publish-card,.tool-card,.about-card{padding:var(--spacing-lg);}
+            .phone-list li strong{min-width:unset;}
         }
         @media(max-width:576px){
             .cta-btn{width:90%;justify-content:center;}
             .welcome-content{padding:1.5rem;}
+            .stats-strip{flex-direction:column;gap:var(--spacing-md);}
+            .stats-strip [style*="opacity:0.3"]{display:none;}
+            .step-number{width:30px;height:30px;font-size:0.78rem;}
+            .hero-banner-shield{width:90px;height:90px;font-size:2.5rem;}
+            .tools-dual-col{grid-template-columns:1fr;}
+            .compliance-grid{grid-template-columns:1fr;}
+            .navbar-custom .navbar-brand{font-size:1.2rem;}
+            .navbar-custom .navbar-brand svg{width:26px;height:26px;}
+            .about-card,.publish-card{padding:var(--spacing-md);}
         }
     </style>
 </head>
 <body>
     <div class="transition-overlay" id="transOverlay"></div>
     <canvas id="universeCanvas"></canvas>
+
+    <!-- 顶部返回引导页按钮 -->
+    <div id="backToWelcomeBtn" title="返回引导页">
+        <i class="bi bi-chevron-up"></i>
+    </div>
 
     <!-- ===== 引导页 ===== -->
     <section class="welcome-section" id="welcomeScreen">
@@ -535,6 +1351,12 @@
                 <i class="bi bi-arrow-right-circle-fill"></i>
             </button>
         </div>
+        <!-- 下滑三叠箭头 -->
+        <div class="scroll-hint-arrow">
+            <div class="arrow-chevron"></div>
+            <div class="arrow-chevron"></div>
+            <div class="arrow-chevron"></div>
+        </div>
         <div class="scroll-hint" id="scrollHint">
             <div class="mouse-icon"></div>
             <span>向下探索</span>
@@ -544,35 +1366,58 @@
     <!-- ===== 导航栏 ===== -->
     <nav class="navbar navbar-expand-lg navbar-custom fixed-top" id="mainNavbar">
         <div class="container">
-            <a class="navbar-brand" href="#" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; padding: 0;">
-    <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <linearGradient id="g3" x1="0" y1="0" x2="100" y2="100">
-                <stop stop-color="#1E40AF"/>
-                <stop offset="1" stop-color="#6D28D9"/>
-            </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r="46" fill="url(#g3)"/>
-        <circle cx="50" cy="50" r="46" fill="none" stroke="white" stroke-opacity="0.2" stroke-width="1.5"/>
-        <path d="M28 62 L72 62 L62 74 L38 74 Z" fill="white"/>
-        <path d="M50 28 L50 58 L30 58 Z" fill="white" opacity="0.9"/>
-        <path d="M50 34 L50 58 L68 58 Z" fill="white" opacity="0.5"/>
-        <line x1="50" y1="26" x2="50" y2="60" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M22 77 Q35 72 50 77 T78 77" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
-    </svg>
-    <span style="font-weight: 700; letter-spacing: 0.5px;">反诈方舟</span>
-</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+            <!-- Logo -->
+            <a class="nav-logo-wrap" href="#">
+                <!-- 新logo：盾牌 + 锚点复合图形，象征守护与定位 -->
+                <div class="nav-logo-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logoG" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#38bdf8"/>
+                                <stop offset="1" stop-color="#818cf8"/>
+                            </linearGradient>
+                            <linearGradient id="logoGDark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#0ea5e9"/>
+                                <stop offset="1" stop-color="#6366f1"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- 船体底座 -->
+                        <path d="M6 20 Q16 26 26 20 L24 25 Q16 30 8 25 Z" fill="url(#logoG)" opacity="0.9"/>
+                        <!-- 船帆主 -->
+                        <path d="M15 5 L15 19 L5 19 Z" fill="url(#logoG)"/>
+                        <!-- 船帆副 -->
+                        <path d="M17 8 L17 19 L27 19 Z" fill="url(#logoG)" opacity="0.6"/>
+                        <!-- 桅杆 -->
+                        <line x1="16" y1="3" x2="16" y2="20" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+                        <!-- 防护盾小标 -->
+                        <path d="M22 3 L26 5 L26 9 Q26 12 22 13.5 Q18 12 18 9 L18 5 Z" fill="url(#logoGDark)" opacity="0.85"/>
+                        <path d="M21.5 8.5 L22.5 9.5 L24.5 7" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="nav-logo-text-wrap">
+                    <span class="nav-logo-title">反诈方舟</span>
+                    <span class="nav-logo-sub">Anti-Fraud Ark · CSU</span>
+                </div>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="菜单">
+                <i class="bi bi-list" style="font-size:1.2rem;"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav mx-auto">
                     <li class="nav-item"><a class="nav-link active" href="#home">首页</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#training">反诈训练营</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#training">训练营</a></li>
                     <li class="nav-item"><a class="nav-link" href="#profile">个人档案</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#treehole">反诈树洞</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#treehole">树洞</a></li>
                     <li class="nav-item"><a class="nav-link" href="#tools">实用工具</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#about">关于我们</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#about">关于</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link nav-cta-btn" href="#training">
+                            <i class="bi bi-shield-check"></i> 开始训练
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -586,13 +1431,22 @@
         <div class="deco-line deco-line-1"></div>
         <div class="container">
             <div class="hero-banner animate-in">
-                <div class="row align-items-center">
-                    <div class="col-lg-10">
-                        <h2 class="hero-title">筑牢校园反诈防线，守护中南学子平安</h2>
-                        <p class="hero-subtitle">沉浸式学习，玩学结合远离套路</p>
+                <div class="hero-banner-inner">
+                    <div class="hero-banner-content">
+                        <h2 class="hero-title">筑牢校园反诈防线<br>守护中南学子平安</h2>
+                        <p class="hero-subtitle mt-2">沉浸式学习，玩学结合远离套路</p>
+                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(56,189,248,0.15);color:#7dd3fc;border:1px solid rgba(56,189,248,0.25);font-size:0.8rem;">🎭 情景剧场</span>
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(99,179,237,0.15);color:#93c5fd;border:1px solid rgba(99,179,237,0.25);font-size:0.8rem;">🧠 推理训练</span>
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(167,139,250,0.15);color:#c4b5fd;border:1px solid rgba(167,139,250,0.25);font-size:0.8rem;">🌲 匿名树洞</span>
+                        </div>
                     </div>
-                    <div class="col-lg-2 text-end d-none d-lg-block">
-                        <i class="bi bi-shield-lock" style="font-size:3rem;color:var(--brand-cyan);opacity:0.12;"></i>
+                    <div class="hero-banner-visual">
+                        <div class="orbit-ring r2"></div>
+                        <div class="orbit-ring r1"></div>
+                        <div class="hero-banner-shield">
+                            <i class="bi bi-shield-shaded"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -600,47 +1454,99 @@
                 <i class="bi bi-info-circle-fill"></i>
                 <div><strong>项目研究公示</strong> 本平台为大创项目成果，目前处于数据采集阶段，感谢参与。您的每一次访问都将帮助我们更好地完善反诈教育体系。</div>
             </div>
+            <!-- 统计横条 -->
+            <div class="stats-strip animate-in">
+                <div class="stat-strip-item">
+                    <div class="stat-strip-num">96110</div>
+                    <div class="stat-strip-label">全国反诈专线</div>
+                </div>
+                <div class="stat-strip-item" style="opacity:0.3;font-size:1.5rem;">|</div>
+                <div class="stat-strip-item">
+                    <div class="stat-strip-num">4+</div>
+                    <div class="stat-strip-label">核心功能模块</div>
+                </div>
+                <div class="stat-strip-item" style="opacity:0.3;font-size:1.5rem;">|</div>
+                <div class="stat-strip-item">
+                    <div class="stat-strip-num">5步</div>
+                    <div class="stat-strip-label">被骗处置流程</div>
+                </div>
+                <div class="stat-strip-item" style="opacity:0.3;font-size:1.5rem;">|</div>
+                <div class="stat-strip-item">
+                    <div class="stat-strip-num">100%</div>
+                    <div class="stat-strip-label">数据匿名保护</div>
+                </div>
+            </div>
             <div class="row g-4 mt-3">
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-1" onclick="location.href='#training'">
-                        <div class="feature-icon"><i class="bi bi-film"></i></div>
-                        <h3>情景剧场</h3>
-                        <p>沉浸式闯关，玩中学防诈</p>
-                        <button class="btn btn-outline-primary btn-sm">进入</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&q=75" alt="情景剧场" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-film"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">情景剧场</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;margin-bottom:1rem;flex:1;">沉浸式闯关，玩中学防诈</p>
+                            <button class="btn btn-outline-primary btn-sm" style="border-radius:var(--radius-full);padding:0.35rem 1.2rem;">进入</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-2" onclick="location.href='#training'">
-                        <div class="feature-icon"><i class="bi bi-chat-dots"></i></div>
-                        <h3>反诈海龟汤</h3>
-                        <p>推理还原，识破诈骗套路</p>
-                        <button class="btn btn-outline-primary btn-sm">进入</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=400&q=75" alt="反诈海龟汤" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-chat-dots"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">反诈海龟汤</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;margin-bottom:1rem;flex:1;">推理还原，识破诈骗套路</p>
+                            <button class="btn btn-outline-primary btn-sm" style="border-radius:var(--radius-full);padding:0.35rem 1.2rem;">进入</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-3" onclick="location.href='#treehole'">
-                        <div class="feature-icon"><i class="bi bi-tree"></i></div>
-                        <h3>反诈树洞</h3>
-                        <p>匿名倾诉，暖心互助支持</p>
-                        <button class="btn btn-outline-primary btn-sm">进入</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=75" alt="反诈树洞" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-tree"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">反诈树洞</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;margin-bottom:1rem;flex:1;">匿名倾诉，暖心互助支持</p>
+                            <button class="btn btn-outline-primary btn-sm" style="border-radius:var(--radius-full);padding:0.35rem 1.2rem;">进入</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-4" onclick="location.href='#tools'">
-                        <div class="feature-icon"><i class="bi bi-tools"></i></div>
-                        <h3>实用工具</h3>
-                        <p>应急指南，全流程处置指引</p>
-                        <button class="btn btn-outline-primary btn-sm">进入</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=75" alt="实用工具" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-tools"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">实用工具</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;margin-bottom:1rem;flex:1;">应急指南，全流程处置指引</p>
+                            <button class="btn btn-outline-primary btn-sm" style="border-radius:var(--radius-full);padding:0.35rem 1.2rem;">进入</button>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="row mt-5">
                 <div class="col-12">
-                    <div class="feature-card animate-in" style="background:linear-gradient(135deg,#f0f9ff,#ffffff);" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()">
-                        <div class="feature-icon"><i class="bi bi-person-bounding-box"></i></div>
-                        <h3>测测你的防诈人格</h3>
-                        <p>10道核心选择题，评估防诈心理倾向，解锁专属反诈指南</p>
-                        <button class="btn btn-primary">开始测试</button>
+                    <div class="feature-card animate-in" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()" style="flex-direction:row;text-align:left;overflow:hidden;padding:0;min-height:180px;">
+                        <div style="flex:1;padding:var(--spacing-2xl) var(--spacing-2xl);display:flex;flex-direction:column;justify-content:center;">
+                            <div class="feature-icon" style="margin-bottom:var(--spacing-md);"><i class="bi bi-person-bounding-box"></i></div>
+                            <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:0.4rem;">测测你的防诈人格</h3>
+                            <p style="color:var(--gray-500);margin-bottom:var(--spacing-lg);">10道核心选择题，评估防诈心理倾向，解锁专属反诈指南</p>
+                            <div><button class="btn btn-primary" style="border-radius:var(--radius-full);">开始测试</button></div>
+                        </div>
+                        <div style="width:300px;flex-shrink:0;overflow:hidden;position:relative;" class="d-none d-lg-block">
+                            <img src="https://images.unsplash.com/photo-1553484771-371a605b060b?w=600&q=80" alt="防诈测试" loading="lazy" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.8) saturate(1.1);">
+                            <div style="position:absolute;inset:0;background:linear-gradient(90deg,var(--white) 0%,transparent 30%);"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -658,37 +1564,68 @@
                 <h2 class="section-title">反诈训练营</h2>
                 <p class="section-subtitle">沉浸式学习 + 推理能力训练 + 诈骗话术识别</p>
             </div>
+            <!-- 训练营横幅图 -->
+            <div class="training-hero-img animate-in">
+                <img src="https://images.unsplash.com/photo-1560472355-536de3962603?w=1200&q=80" alt="反诈训练" loading="lazy">
+                <div class="training-hero-img-overlay">
+                    <p><i class="bi bi-shield-fill-check"></i>&nbsp; 通过真实案例还原，提升您对诈骗话术的识别能力，让每一次学习都产生实际防护效果</p>
+                </div>
+            </div>
             <div class="row g-4">
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-1" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()">
-                        <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
-                        <h3>闯关剧场</h3>
-                        <p>沉浸式体验，双视角识破诈骗套路</p>
-                        <button class="btn btn-outline-primary btn-sm">即将上线</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400&q=75" alt="闯关剧场" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">闯关剧场</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;flex:1;margin-bottom:1rem;">沉浸式体验，双视角识破诈骗套路</p>
+                            <button class="btn btn-outline-secondary btn-sm" style="border-radius:var(--radius-full);">即将上线</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-2" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()">
-                        <div class="feature-icon"><i class="bi bi-chat-square-text"></i></div>
-                        <h3>话术实战营</h3>
-                        <p>1:1还原对话场景，识别诈骗话术</p>
-                        <button class="btn btn-outline-primary btn-sm">即将上线</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1577563908411-5077b6dc7624?w=400&q=75" alt="话术实战营" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-chat-square-text"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">话术实战营</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;flex:1;margin-bottom:1rem;">1:1还原对话场景，识别诈骗话术</p>
+                            <button class="btn btn-outline-secondary btn-sm" style="border-radius:var(--radius-full);">即将上线</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-3" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()">
-                        <div class="feature-icon"><i class="bi bi-lightbulb"></i></div>
-                        <h3>反诈海龟汤</h3>
-                        <p>推理还原，识破诈骗逻辑</p>
-                        <button class="btn btn-outline-primary btn-sm">即将上线</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=400&q=75" alt="反诈海龟汤" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-lightbulb"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">反诈海龟汤</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;flex:1;margin-bottom:1rem;">推理还原，识破诈骗逻辑</p>
+                            <button class="btn btn-outline-secondary btn-sm" style="border-radius:var(--radius-full);">即将上线</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <div class="feature-card animate-in stagger-4" onclick="new bootstrap.Modal(document.getElementById('devModal')).show()">
-                        <div class="feature-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
-                        <h3>反诈知识库</h3>
-                        <p>诈骗类型详解，真实案例剖析</p>
-                        <button class="btn btn-outline-primary btn-sm">即将上线</button>
+                        <div class="feature-card-img">
+                            <img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&q=75" alt="反诈知识库" loading="lazy">
+                            <div class="feature-card-img-overlay"></div>
+                        </div>
+                        <div class="feature-card-body">
+                            <div class="feature-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
+                            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">反诈知识库</h3>
+                            <p style="color:var(--gray-500);font-size:0.9rem;flex:1;margin-bottom:1rem;">诈骗类型详解，真实案例剖析</p>
+                            <button class="btn btn-outline-secondary btn-sm" style="border-radius:var(--radius-full);">即将上线</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -705,6 +1642,46 @@
             <div class="section-header animate-in">
                 <h2 class="section-title">个人档案</h2>
                 <p class="section-subtitle">追踪学习进度，查看反诈能力成长</p>
+            </div>
+            <div class="profile-banner animate-in">
+                <svg class="profile-banner-svg" viewBox="0 0 900 160" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                    <!-- 网格线 -->
+                    <defs>
+                        <pattern id="pg" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(56,189,248,0.07)" stroke-width="1"/>
+                        </pattern>
+                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.7"/>
+                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.3"/>
+                        </linearGradient>
+                        <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#38bdf8"/>
+                            <stop offset="100%" stop-color="#a78bfa"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#pg)"/>
+                    <!-- 成长折线 -->
+                    <polyline points="520,130 580,100 640,75 700,50 760,35 820,20 880,15" fill="none" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+                    <circle cx="700" cy="50" r="4" fill="#38bdf8" opacity="0.8"/>
+                    <circle cx="760" cy="35" r="4" fill="#7dd3fc" opacity="0.8"/>
+                    <circle cx="820" cy="20" r="6" fill="#a78bfa" opacity="0.9"/>
+                    <!-- 进度条组 -->
+                    <rect x="540" y="75" width="6" height="55" rx="3" fill="url(#barGrad)" opacity="0.5"/>
+                    <rect x="560" y="60" width="6" height="70" rx="3" fill="url(#barGrad)" opacity="0.5"/>
+                    <rect x="580" y="45" width="6" height="85" rx="3" fill="url(#barGrad)" opacity="0.5"/>
+                    <rect x="600" y="30" width="6" height="100" rx="3" fill="url(#barGrad)" opacity="0.6"/>
+                    <!-- 徽章圆 -->
+                    <circle cx="810" cy="110" r="28" fill="none" stroke="rgba(167,139,250,0.25)" stroke-width="1.5"/>
+                    <circle cx="810" cy="110" r="20" fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.4)" stroke-width="1.5"/>
+                    <text x="810" y="116" text-anchor="middle" font-size="14" fill="rgba(255,255,255,0.6)" font-family="sans-serif">Lv.</text>
+                    <!-- 装饰点 -->
+                    <circle cx="640" cy="130" r="2" fill="#38bdf8" opacity="0.4"/>
+                    <circle cx="680" cy="120" r="2" fill="#38bdf8" opacity="0.3"/>
+                    <circle cx="720" cy="115" r="2" fill="#7dd3fc" opacity="0.3"/>
+                </svg>
+                <div class="profile-banner-overlay">
+                    <span>📈 &nbsp;记录每一步成长，铸就铜墙铁壁</span>
+                </div>
             </div>
             <div class="row g-4 mb-4">
                 <div class="col-md-3 col-6">
@@ -748,6 +1725,16 @@
             <div class="section-header animate-in">
                 <h2 class="section-title">反诈树洞</h2>
                 <p class="section-subtitle">匿名倾诉，暖心互助支持</p>
+            </div>
+            <div class="treehole-banner animate-in">
+                <img src="https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=1200&q=80" alt="树洞" loading="lazy">
+                <div class="treehole-banner-overlay">
+                    <i class="bi bi-tree-fill"></i>
+                    <div class="treehole-banner-text">
+                        <h4>这里是安全的空间</h4>
+                        <p>你的每一份倾诉都会被温柔对待，遭遇不是你的错</p>
+                    </div>
+                </div>
             </div>
             <div class="publish-card animate-in">
                 <h5 class="mb-3"><i class="bi bi-chat-dots"></i> 匿名倾诉</h5>
@@ -794,33 +1781,28 @@
                 <h2 class="section-title">实用工具</h2>
                 <p class="section-subtitle">应急指南，全流程处置指引</p>
             </div>
-            <div class="tool-card animate-in">
-                <h5><i class="bi bi-telephone-fill text-danger"></i> 一键求助</h5>
-                <div class="row g-3 mt-2">
-                    <div class="col-md-6">
-                        <a href="tel:110" class="emergency-btn w-100 justify-content-center">
-                            <i class="bi bi-shield"></i> 110 报警电话
-                        </a>
-                    </div>
-                    <div class="col-md-6">
-                        <a href="tel:96110" class="emergency-btn w-100 justify-content-center" style="background-color:var(--success-color);">
-                            <i class="bi bi-telephone"></i> 96110 反诈专线
-                        </a>
+            <div class="tool-section-hero animate-in">
+                <img src="https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=1200&q=80" alt="应急工具" loading="lazy">
+                <div class="tool-section-hero-overlay">
+                    <div class="tool-section-hero-text">
+                        <h3>遭遇诈骗？立刻行动</h3>
+                        <p>每一分钟都关键，按步骤处置最大限度挽回损失</p>
                     </div>
                 </div>
             </div>
-            <div class="tool-card animate-in">
+            <div class="tools-dual-col animate-in">
+                <div class="tool-card">
                 <h5><i class="bi bi-building"></i> 校内求助资源</h5>
-                <ul class="phone-list mt-3" style="list-style:none;padding-left:0;">
-                    <li><strong>校本部保卫处</strong> 24小时值班：0731-88877110</li>
-                    <li><strong>南校区保卫处</strong> 24小时值班：0731-88666667</li>
-                    <li><strong>铁道校区保卫处</strong> 24小时值班：0731-82655110</li>
-                    <li><strong>湘雅校区保卫处</strong> 24小时值班：0731-88999110</li>
-                    <li><strong>校心理咨询中心</strong> 预约热线：0731-88877162</li>
-                    <li><strong>学工办联系方式</strong> 各学院辅导员办公室值班表详见校内通知</li>
+                <ul class="phone-list mt-3" style="list-style:none;padding-left:0;margin:0;">
+                    <li><strong>校本部保卫处</strong> &nbsp;24小时值班：0731-88877110</li>
+                    <li><strong>南校区保卫处</strong> &nbsp;24小时值班：0731-88666667</li>
+                    <li><strong>铁道校区保卫处</strong> &nbsp;24小时值班：0731-82655110</li>
+                    <li><strong>湘雅校区保卫处</strong> &nbsp;24小时值班：0731-88999110</li>
+                    <li><strong>校心理咨询中心</strong> &nbsp;预约热线：0731-88877162</li>
+                    <li><strong>学工办联系方式</strong> &nbsp;各学院辅导员办公室值班表详见校内通知</li>
                 </ul>
-            </div>
-            <div class="tool-card animate-in">
+                </div>
+                <div class="tool-card">
                 <h5><i class="bi bi-clipboard-check"></i> 被骗后全流程报案教程</h5>
                 <div class="step-item">
                     <div class="d-flex"><span class="step-number">1</span><div><strong>立即止损</strong><br><span class="text-muted small">修改账户密码、银行/支付平台挂失、拉黑诈骗分子</span></div></div>
@@ -837,19 +1819,20 @@
                 <div class="step-item">
                     <div class="d-flex"><span class="step-number">5</span><div><strong>心理调适</strong><br><span class="text-muted small">被骗不是你的错，可联系校心理咨询中心获取免费支持</span></div></div>
                 </div>
-            </div>
+                </div><!-- end tool-card -->
+            </div><!-- end tools-dual-col -->
             <div class="tool-card animate-in">
                 <h5><i class="bi bi-list-check"></i> 防诈自查清单</h5>
-                <div class="row">
+                <div class="row mt-3">
                     <div class="col-md-6">
-                        <p><i class="bi bi-check-circle text-success"></i> 兼职刷单：任何要求先垫付的都是诈骗</p>
-                        <p><i class="bi bi-check-circle text-success"></i> 网购退款：只走官方渠道，不点陌生链接</p>
-                        <p><i class="bi bi-check-circle text-success"></i> 校园贷：注销校园贷是诈骗，不用理会</p>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>兼职刷单：任何要求先垫付的都是诈骗</span></div>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>网购退款：只走官方渠道，不点陌生链接</span></div>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>校园贷：注销校园贷是诈骗，不用理会</span></div>
                     </div>
                     <div class="col-md-6">
-                        <p><i class="bi bi-check-circle text-success"></i> 冒充身份：转账前一定要电话/当面核实</p>
-                        <p><i class="bi bi-check-circle text-success"></i> 游戏交易：走正规平台，不私下交易</p>
-                        <p><i class="bi bi-check-circle text-success"></i> 验证码：任何人索要验证码都是诈骗</p>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>冒充身份：转账前一定要电话/当面核实</span></div>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>游戏交易：走正规平台，不私下交易</span></div>
+                        <div class="checklist-item"><i class="bi bi-check-circle-fill"></i> <span>验证码：任何人索要验证码都是诈骗</span></div>
                     </div>
                 </div>
             </div>
@@ -866,8 +1849,14 @@
                 <h2 class="section-title">关于我们</h2>
                 <p class="section-subtitle">项目初衷、团队信息与学术承诺</p>
             </div>
+            <div class="about-hero-img animate-in">
+                <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&q=80" alt="中南大学团队" loading="lazy">
+                <div class="about-hero-img-overlay">
+                    <span>中南大学 · 反诈方舟项目组</span>
+                </div>
+            </div>
             <div class="about-card animate-in">
-                <h5><i class="bi bi-heart-fill text-danger"></i> 项目初衷</h5>
+                <h5><i class="bi bi-bullseye text-primary"></i> 项目初衷</h5>
                 <p class="mt-3">本平台源于对高校校园诈骗高发现状的关切，针对传统反诈教育形式单一、学生参与度低、缺乏心理关怀的痛点，由中南大学学生团队自主设计开发，旨在通过游戏化、沉浸式的学习模式提升中南学子反诈能力，同时为遭遇诈骗的同学提供安全的倾诉空间与人文关怀，构建「预警 - 学习 - 处置 - 关怀」的完整反诈守护体系。</p>
             </div>
             <div class="about-card animate-in">
@@ -876,22 +1865,22 @@
                 <div class="row mt-4">
                     <div class="col-md-4 col-6">
                         <div class="team-member text-center p-3">
-                            <div class="team-icon mx-auto mb-2"><i class="bi bi-code-slash" style="font-size:2rem;"></i></div>
-                            <h6>前端开发</h6>
+                            <div class="team-icon mx-auto mb-3"><i class="bi bi-code-slash" style="font-size:1.5rem;"></i></div>
+                            <h6 style="font-weight:700;">前端开发</h6>
                             <p class="text-muted small">负责界面与交互</p>
                         </div>
                     </div>
                     <div class="col-md-4 col-6">
                         <div class="team-member text-center p-3">
-                            <div class="team-icon mx-auto mb-2"><i class="bi bi-database" style="font-size:2rem;"></i></div>
-                            <h6>后端开发</h6>
+                            <div class="team-icon mx-auto mb-3" style="background:linear-gradient(135deg,var(--accent-color),var(--brand-purple));"><i class="bi bi-database" style="font-size:1.5rem;"></i></div>
+                            <h6 style="font-weight:700;">后端开发</h6>
                             <p class="text-muted small">负责服务器与数据</p>
                         </div>
                     </div>
                     <div class="col-md-4 col-6">
                         <div class="team-member text-center p-3">
-                            <div class="team-icon mx-auto mb-2"><i class="bi bi-bar-chart" style="font-size:2rem;"></i></div>
-                            <h6>调研分析</h6>
+                            <div class="team-icon mx-auto mb-3" style="background:linear-gradient(135deg,var(--brand-purple),#ec4899);"><i class="bi bi-bar-chart" style="font-size:1.5rem;"></i></div>
+                            <h6 style="font-weight:700;">调研分析</h6>
                             <p class="text-muted small">负责内容与数据</p>
                         </div>
                     </div>
@@ -899,10 +1888,28 @@
             </div>
             <div class="about-card animate-in">
                 <h5><i class="bi bi-shield-check"></i> 合规承诺</h5>
-                <div class="mt-3">
-                    <p><strong>隐私保护：</strong>严格保护用户隐私，不收集实名信息，所有数据仅用于匿名化学术研究，不对外泄露、不用于商业用途。</p>
-                    <p class="mt-2"><strong>学术诚信：</strong>所有研究内容、案例数据恪守学术规范，无抄袭、伪造，引用内容均标注来源。</p>
-                    <p class="mt-3 text-muted small border-top pt-3">© 2026 中南大学大学生创新训练计划项目成果</p>
+                <div class="compliance-grid">
+                    <div class="compliance-item">
+                        <div class="compliance-item-icon ci-blue">
+                            <i class="bi bi-person-lock"></i>
+                        </div>
+                        <div class="compliance-item-body">
+                            <h6>隐私保护</h6>
+                            <p>不收集实名信息，所有数据匿名化处理，严禁对外泄露或用于商业用途。</p>
+                        </div>
+                    </div>
+                    <div class="compliance-item">
+                        <div class="compliance-item-icon ci-green">
+                            <i class="bi bi-journal-check"></i>
+                        </div>
+                        <div class="compliance-item-body">
+                            <h6>学术诚信</h6>
+                            <p>所有研究内容恪守学术规范，无抄袭伪造，引用内容均标注来源。</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="compliance-footer">
+                    <p class="text-muted small mb-0">© 2026 中南大学大学生创新训练计划项目成果 &nbsp;·&nbsp; 沉浸式反诈教育平台 V3.0</p>
                 </div>
             </div>
         </div>
@@ -930,8 +1937,19 @@
 
     <!-- ===== 页脚 ===== -->
     <footer>
-        <div class="container text-center">
-            <p>&copy; 2026 反诈方舟项目组 &nbsp;|&nbsp; 中南大学2026年大学生创新训练计划 &nbsp;|&nbsp; 沉浸式反诈教育平台 V3.0</p>
+        <div class="container">
+            <div class="text-center mb-3">
+                <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.5;margin-bottom:0.6rem;">
+                    <circle cx="50" cy="50" r="46" fill="url(#fg3)"/>
+                    <defs><linearGradient id="fg3" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs>
+                    <path d="M28 62 L72 62 L62 74 L38 74 Z" fill="white"/>
+                    <path d="M50 28 L50 58 L30 58 Z" fill="white" opacity="0.9"/>
+                    <path d="M50 34 L50 58 L68 58 Z" fill="white" opacity="0.5"/>
+                    <line x1="50" y1="26" x2="50" y2="60" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M22 77 Q35 72 50 77 T78 77" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+                </svg>
+            </div>
+            <p class="text-center">&copy; 2026 反诈方舟项目组 &nbsp;|&nbsp; 中南大学2026年大学生创新训练计划 &nbsp;|&nbsp; 沉浸式反诈教育平台 V3.0</p>
         </div>
     </footer>
 
@@ -993,87 +2011,216 @@
        页面交互逻辑
        ======================================== */
     (function(){
-        var welcomeSection=document.getElementById('welcomeScreen');
-        var mainNavbar=document.getElementById('mainNavbar');
-        var enterBtn=document.getElementById('enterBtn');
-        var scrollHint=document.getElementById('scrollHint');
-        var homeSection=document.getElementById('home');
-        var navLinks=document.querySelectorAll('.navbar-nav .nav-link');
-        var sections=document.querySelectorAll('section[id]');
-        var animateElements=document.querySelectorAll('.animate-in');
-        var transOverlay=document.getElementById('transOverlay');
-        var universeCanvas=document.getElementById('universeCanvas');
-        var hasEntered=false;
+        var welcomeSection  = document.getElementById('welcomeScreen');
+        var mainNavbar      = document.getElementById('mainNavbar');
+        var enterBtn        = document.getElementById('enterBtn');
+        var homeSection     = document.getElementById('home');
+        var navLinks        = document.querySelectorAll('.navbar-nav .nav-link');
+        var sections        = document.querySelectorAll('section[id]');
+        var animateElements = document.querySelectorAll('.animate-in');
+        var transOverlay    = document.getElementById('transOverlay');
+        var universeCanvas  = document.getElementById('universeCanvas');
+        var backBtn         = document.getElementById('backToWelcomeBtn');
+        var hasEntered      = false;
 
+        /* ── 涟漪 ── */
         function createRipple(e){
-            var btn=e.currentTarget,rip=document.createElement('span');
-            var rect=btn.getBoundingClientRect(),sz=Math.max(rect.width,rect.height);
-            rip.style.width=rip.style.height=sz+'px';
-            rip.style.left=(e.clientX-rect.left-sz/2)+'px';
-            rip.style.top=(e.clientY-rect.top-sz/2)+'px';
-            rip.classList.add('ripple');btn.appendChild(rip);
-            setTimeout(function(){rip.remove();},700);
+            var btn = e.currentTarget, rip = document.createElement('span');
+            var rect = btn.getBoundingClientRect(), sz = Math.max(rect.width, rect.height);
+            rip.style.width = rip.style.height = sz + 'px';
+            rip.style.left  = (e.clientX - rect.left - sz/2) + 'px';
+            rip.style.top   = (e.clientY - rect.top  - sz/2) + 'px';
+            rip.classList.add('ripple');
+            btn.appendChild(rip);
+            setTimeout(function(){ rip.remove(); }, 700);
         }
-        document.querySelectorAll('.cta-btn,.btn,.emergency-btn').forEach(function(b){b.addEventListener('click',createRipple);});
+        document.querySelectorAll('.cta-btn,.btn,.emergency-btn').forEach(function(b){
+            b.addEventListener('click', createRipple);
+        });
 
+        /* ── 进入主页 ── */
         function enterMainPage(){
-            if(hasEntered)return;hasEntered=true;
-            transOverlay.classList.add('active');
-            setTimeout(function(){
-                homeSection.scrollIntoView({behavior:'auto',block:'start'});
-                window.scrollTo(0,0);
-                welcomeSection.style.display='none';
-                if(universeCanvas)universeCanvas.style.display='none';
-                if(window.setUniverseRunning)window.setUniverseRunning(false);
-                setTimeout(function(){
-                    transOverlay.classList.remove('active');
-                    mainNavbar.classList.add('scrolled');
-                    animateElements.forEach(function(el){
-                        var r=el.getBoundingClientRect();
-                        if(r.top<window.innerHeight&&r.bottom>0)el.classList.add('visible');
-                    });
-                },100);
-            },550);
-        }
-        enterBtn.addEventListener('click',enterMainPage);
-        scrollHint.addEventListener('click',enterMainPage);
+            if (hasEntered) return;
+            hasEntered = true;
 
+            // 引导页飞走
+            welcomeSection.classList.add('exited');
+
+            // 滚到顶部（此时引导页高度即将折叠为0）
+            setTimeout(function(){
+                window.scrollTo({ top: 0, behavior: 'auto' });
+                mainNavbar.classList.add('scrolled');
+                if (backBtn) backBtn.style.display = 'flex';
+                animateElements.forEach(function(el){
+                    var r = el.getBoundingClientRect();
+                    if (r.top < window.innerHeight && r.bottom > 0) el.classList.add('visible');
+                });
+            }, 760);
+        }
+
+        /* ── 返回引导页 ── */
+        function backToWelcome(){
+            if (!hasEntered) return;
+            hasEntered = false;
+
+            // 先让引导页高度恢复，再做动画
+            welcomeSection.style.height = '100vh';
+            welcomeSection.style.overflow = '';
+            welcomeSection.classList.remove('exited');
+            welcomeSection.classList.add('returning');
+
+            if (backBtn) backBtn.style.display = 'none';
+            mainNavbar.classList.remove('scrolled');
+
+            // 滚到最顶
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            setTimeout(function(){
+                welcomeSection.classList.remove('returning');
+                welcomeSection.style.height = '';
+                welcomeSection.style.overflow = '';
+            }, 800);
+        }
+
+        enterBtn.addEventListener('click', enterMainPage);
+        if (backBtn) backBtn.addEventListener('click', backToWelcome);
+
+        /* ── 滚轮阻滞：在引导页底部积累下滑再触发 ── */
+        var wheelAccum = 0;
+        var ENTER_THRESH = 260;
+        var resistTimer = null;
+        var isResisting = false;
+
+        window.addEventListener('wheel', function(e){
+            if (hasEntered) {
+                // 已在主页，处于顶部向上继续滑 → 返回引导页
+                if (window.scrollY === 0 && e.deltaY < 0) {
+                    wheelAccum += e.deltaY;
+                    clearTimeout(resistTimer);
+                    if (wheelAccum <= -180) {
+                        wheelAccum = 0;
+                        backToWelcome();
+                    } else {
+                        resistTimer = setTimeout(function(){ wheelAccum = 0; }, 500);
+                    }
+                } else {
+                    wheelAccum = 0;
+                }
+                return;
+            }
+
+            // 在引导页且已滚到底部边缘
+            var atBottom = (window.scrollY + window.innerHeight) >= welcomeSection.offsetHeight - 5;
+            if (!atBottom) { wheelAccum = 0; return; }
+
+            if (e.deltaY <= 0) { wheelAccum = 0; return; }
+
+            e.preventDefault();
+            wheelAccum += e.deltaY;
+
+            // 视觉：内容轻微下压给阻滞感
+            var wc = welcomeSection.querySelector('.welcome-content');
+            if (wc) {
+                var nudge = Math.min(wheelAccum * 0.06, 32);
+                wc.style.transform = 'translateY(' + nudge + 'px)';
+                wc.style.transition = 'none';
+            }
+
+            clearTimeout(resistTimer);
+
+            if (wheelAccum >= ENTER_THRESH) {
+                if (wc) { wc.style.transform = ''; wc.style.transition = ''; }
+                enterMainPage();
+            } else {
+                resistTimer = setTimeout(function(){
+                    if (wc) {
+                        wc.style.transition = 'transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
+                        wc.style.transform = '';
+                        setTimeout(function(){ wc.style.transition = ''; }, 460);
+                    }
+                    wheelAccum = 0;
+                }, 200);
+            }
+        }, { passive: false });
+
+        /* ── 触摸手势 ── */
+        var touchStartY = 0, touchDelta = 0;
+        window.addEventListener('touchstart', function(e){
+            touchStartY = e.touches[0].clientY;
+            touchDelta = 0;
+        }, { passive: true });
+
+        window.addEventListener('touchmove', function(e){
+            if (hasEntered) return;
+            var atBottom = (window.scrollY + window.innerHeight) >= welcomeSection.offsetHeight - 5;
+            if (!atBottom) return;
+            touchDelta = touchStartY - e.touches[0].clientY;
+            var wc = welcomeSection.querySelector('.welcome-content');
+            if (wc && touchDelta > 0) {
+                wc.style.transition = 'none';
+                wc.style.transform = 'translateY(' + Math.min(touchDelta * 0.3, 28) + 'px)';
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', function(){
+            if (hasEntered) return;
+            var wc = welcomeSection.querySelector('.welcome-content');
+            if (touchDelta >= 80) {
+                if (wc) { wc.style.transform = ''; wc.style.transition = ''; }
+                enterMainPage();
+            } else {
+                if (wc) {
+                    wc.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                    wc.style.transform = '';
+                }
+            }
+            touchDelta = 0;
+        }, { passive: true });
+
+        /* ── 滚动更新导航高亮 ── */
         function handleScroll(){
-            var sy=window.scrollY,wh=window.innerHeight;
-            if(!hasEntered&&sy<wh){
-                var sp=sy/wh;
-                var wc=welcomeSection.querySelector('.welcome-content');
-                if(wc)wc.style.opacity=1-sp*1.2;
-                mainNavbar.classList.remove('scrolled');
-            }else{mainNavbar.classList.add('scrolled');}
-            var cur='';
+            var sy = window.scrollY;
+            if (hasEntered) mainNavbar.classList.add('scrolled');
+            var cur = '';
             sections.forEach(function(s){
-                var st=s.offsetTop-100,sh=s.offsetHeight;
-                if(sy>=st&&sy<st+sh)cur=s.getAttribute('id');
+                var st = s.offsetTop - 100, sh = s.offsetHeight;
+                if (sy >= st && sy < st + sh) cur = s.getAttribute('id');
             });
             navLinks.forEach(function(l){
                 l.classList.remove('active');
-                if(l.getAttribute('href').slice(1)===cur)l.classList.add('active');
+                if (l.getAttribute('href').slice(1) === cur) l.classList.add('active');
             });
         }
-        window.addEventListener('scroll',handleScroll);handleScroll();
+        window.addEventListener('scroll', handleScroll);
+        handleScroll();
 
-        var obs=new IntersectionObserver(function(entries){
-            entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
-        },{root:null,rootMargin:'0px 0px -10% 0px',threshold:0.1});
-        animateElements.forEach(function(el){obs.observe(el);});
+        /* IntersectionObserver */
+        var obs = new IntersectionObserver(function(entries){
+            entries.forEach(function(e){
+                if (e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); }
+            });
+        }, { root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+        animateElements.forEach(function(el){ obs.observe(el); });
 
+        /* 锚点跳转 */
         document.querySelectorAll('a[href^="#"]').forEach(function(a){
-            a.addEventListener('click',function(e){
-                e.preventDefault();var tid=this.getAttribute('href'),te=document.querySelector(tid);
-                if(te){if(!hasEntered)enterMainPage();setTimeout(function(){te.scrollIntoView({behavior:'smooth',block:'start'});var nc=document.querySelector('.navbar-collapse');if(nc&&nc.classList.contains('show'))new bootstrap.Collapse(nc).hide();},hasEntered?0:600);}
+            a.addEventListener('click', function(e){
+                e.preventDefault();
+                var tid = this.getAttribute('href'), te = document.querySelector(tid);
+                if (!te) return;
+                if (!hasEntered) enterMainPage();
+                setTimeout(function(){
+                    te.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    var nc = document.querySelector('.navbar-collapse');
+                    if (nc && nc.classList.contains('show')) new bootstrap.Collapse(nc).hide();
+                }, hasEntered ? 0 : 800);
             });
         });
-        window.addEventListener('DOMContentLoaded',function(){
-            document.body.style.opacity='0';
-            document.body.style.transition='opacity 0.5s ease-in-out';
-            setTimeout(function(){document.body.style.opacity='1';},100);
-        });
+
+        /* 淡入 */
+        document.body.style.opacity = '0';
+        document.body.style.transition = 'opacity 0.5s ease';
+        setTimeout(function(){ document.body.style.opacity = '1'; }, 80);
     })();
     </script>
 </body>
