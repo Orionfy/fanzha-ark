@@ -1,5 +1,12 @@
 from battle.intent import classify_intent, evaluate_reply, scan_signals
-from battle.engine import abort_battle, battles, delete_battle, reply_to_battle, start_battle
+from battle.engine import (
+    _reaction_lines,
+    abort_battle,
+    battles,
+    delete_battle,
+    reply_to_battle,
+    start_battle,
+)
 from battle.scenarios import BATTLE_SCENARIOS
 
 
@@ -338,6 +345,159 @@ def test_dynamic_summary_mentions_round() -> None:
     assert any("第" in line for line in state.result.summary)
 
 
+# ---------- v3: 开场反应台词（reactions 意图差异化） ----------
+
+def test_reaction_prefixed_when_reply_refuse() -> None:
+    # Given
+    battles.clear()
+    started = start_battle("1", "小北")
+
+    # When（refuse 使 mood 48-15=33 <50 → 破防变体 pool[-1]）
+    state = reply_to_battle(started.battle_id, "不用了，我没兴趣")
+
+    # Then
+    assert state.round_no == 2
+    pool = BATTLE_SCENARIOS["1"]["rounds"][1]["reactions"]["refuse"]
+    assert state.scammer_msg.startswith(pool[-1])
+
+
+def test_reaction_strong_variant_when_mood_high() -> None:
+    # Given
+    battles.clear()
+    started = start_battle("1", "小北")
+
+    # When（comply 使 mood 48+20=68 ≥50 → 强势变体 pool[0]）
+    state = reply_to_battle(started.battle_id, "好，我转账")
+
+    # Then
+    assert state.round_no == 2
+    pool = BATTLE_SCENARIOS["1"]["rounds"][1]["reactions"]["comply"]
+    assert state.scammer_msg.startswith(pool[0])
+
+
+def test_reaction_differs_by_intent() -> None:
+    # Given
+    battles.clear()
+    started = start_battle("1", "小北")
+    refuse_state = reply_to_battle(started.battle_id, "不用了，我没兴趣")
+
+    battles.clear()
+    started = start_battle("1", "小北")
+    comply_state = reply_to_battle(started.battle_id, "好，我转账")
+
+    # When / Then（不同意图 → 不同开场台词）
+    assert refuse_state.round_no == 2
+    assert comply_state.round_no == 2
+    refuse_first = refuse_state.scammer_msg.split("\n", 1)[0]
+    comply_first = comply_state.scammer_msg.split("\n", 1)[0]
+    assert refuse_first != comply_first
+
+
+def test_reaction_fallback_without_feedback() -> None:
+    # Given（feedback=None 时无开场反应）
+    battles.clear()
+
+    # When
+    state = start_battle("1", "小北")
+
+    # Then（message == 纯剧本台词）
+    script = "\n".join(BATTLE_SCENARIOS["1"]["rounds"][0]["lines"])
+    assert state.scammer_msg == script
+
+
+def test_reaction_fallback_unmatched_intent() -> None:
+    # Given（无匹配意图池时返回 None）
+    battles.clear()
+    started = start_battle("1", "小北")
+    session = battles[started.battle_id]
+
+    # When / Then
+    from dataclasses import replace
+
+    no_feedback = _reaction_lines(BATTLE_SCENARIOS["1"], replace(session, feedback=None))
+    unmatched = _reaction_lines(BATTLE_SCENARIOS["1"], replace(session, feedback={"intent": "alert"}))
+    assert no_feedback is None
+    assert unmatched is None
+
+
+def test_reaction_preserves_signal_scan() -> None:
+    # Given
+    battles.clear()
+    started = start_battle("1", "小北")
+
+    # When（反应台词不污染信号扫描，信号只来自剧本 script）
+    state = reply_to_battle(started.battle_id, "不用了，我没兴趣")
+
+    # Then
+    script = "\n".join(BATTLE_SCENARIOS["1"]["rounds"][1]["lines"])
+    assert [s.keyword for s in state.signals] == [s["keyword"] for s in scan_signals(script, BATTLE_SCENARIOS["1"])]
+
+
+def test_reactions_data_completeness() -> None:
+    # Given（4 场景 × 7 轮 × 5 意图 × 2 变体，且两变体互不相同）
+    expected_intents = {"refuse", "suspect", "stall", "comply", "chat"}
+
+    # When / Then
+    for scenario_id, scenario in BATTLE_SCENARIOS.items():
+        assert len(scenario["rounds"]) == 7, scenario_id
+        for battle_round in scenario["rounds"]:
+            reactions = battle_round["reactions"]
+            assert set(reactions.keys()) == expected_intents, (scenario_id, battle_round["no"])
+            for intent, pool in reactions.items():
+                assert len(pool) == 2, (scenario_id, battle_round["no"], intent)
+                assert pool[0] != pool[-1], (scenario_id, battle_round["no"], intent)
+
+
+# ---------- v4: 回合阶段元数据（round_meta） ----------
+
+def test_round_meta_follows_round_progression() -> None:
+    # Given
+    battles.clear()
+    started = start_battle("1", "小北")
+    battle_id = started.battle_id
+
+    # When
+    round1 = started
+    round2 = reply_to_battle(battle_id, "不用了，我没兴趣")
+    round3 = reply_to_battle(battle_id, "不感兴趣")
+    round4 = reply_to_battle(battle_id, "不做了")
+    round5 = reply_to_battle(battle_id, "还是算了")
+
+    # Then（阶段/标题随轮次推进且不为空）
+    assert (round1.round_phase, round1.round_title) == ("诱饵投放", "入群晒单")
+    assert (round2.round_phase, round2.round_title) == ("诱饵投放", "小额甜头")
+    assert (round3.round_phase, round3.round_title) == ("垫付升级", "会员任务")
+    assert (round4.round_phase, round4.round_title) == ("垫付升级", "连环大单")
+    assert (round5.round_phase, round5.round_title) == ("收割施压", "冻结威胁")
+
+
+def test_round_meta_completeness_and_phases() -> None:
+    # Given（4 场景 × 7 轮均有阶段/标题，收网轮在最后）
+    for scenario_id, scenario in BATTLE_SCENARIOS.items():
+        meta = scenario["round_meta"]
+
+        # Then
+        assert set(meta.keys()) == {1, 2, 3, 4, 5, 6, 7}, scenario_id
+        for round_no, (phase, title) in meta.items():
+            assert phase and title, (scenario_id, round_no)
+        assert meta[7][0] == "收网", scenario_id
+
+
+def test_round_meta_told_round_falls_back_to_script() -> None:
+    # Given（破绽轮/终局轮也要携带阶段信息）
+    battles.clear()
+    started = start_battle("2", "小北")
+    battle_id = started.battle_id
+
+    # When
+    reply_to_battle(battle_id, "不用了，我没兴趣")
+    state = reply_to_battle(battle_id, "我不需要")
+
+    # Then（破绽轮仍携带当前轮阶段）
+    assert state.scammer_state.strategy_label == "语无伦次·破绽显露"
+    assert state.round_phase in {meta[0] for meta in BATTLE_SCENARIOS["2"]["round_meta"].values()}
+
+
 def run_intent_tests() -> None:
     test_intent_priority_when_reply_contains_compliance_and_alarm()
     test_expose_when_reply_names_scam()
@@ -361,6 +521,16 @@ def run_intent_tests() -> None:
     test_collapse_early_win()
     test_dynamic_achievement_zero_comply()
     test_dynamic_summary_mentions_round()
+    test_reaction_prefixed_when_reply_refuse()
+    test_reaction_strong_variant_when_mood_high()
+    test_reaction_differs_by_intent()
+    test_reaction_fallback_without_feedback()
+    test_reaction_fallback_unmatched_intent()
+    test_reaction_preserves_signal_scan()
+    test_reactions_data_completeness()
+    test_round_meta_follows_round_progression()
+    test_round_meta_completeness_and_phases()
+    test_round_meta_told_round_falls_back_to_script()
 
 
 if __name__ == "__main__":
