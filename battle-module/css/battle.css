@@ -390,7 +390,12 @@ body.in-battle #starCanvas { opacity: 0.35; }
 .hp-fill.hp-mid { filter: hue-rotate(52deg) saturate(1.25); }
 .hp-fill.hp-low { filter: hue-rotate(115deg) saturate(1.5); }
 .mood-fill { background: linear-gradient(90deg, var(--danger-600), var(--danger-400)); }
-.mood-fill.mood-soft { filter: grayscale(0.65) brightness(0.8); }
+.mood-fill.mood-tier-1 { background: linear-gradient(90deg, var(--danger-600), var(--danger-400)); }
+.mood-fill.mood-tier-2 { background: linear-gradient(90deg, var(--violet-600), var(--violet-400)); }
+.mood-fill.mood-tier-3 { background: linear-gradient(90deg, var(--warning-500), var(--warning-400)); }
+.mood-fill.mood-tier-4 { background: linear-gradient(90deg, var(--orange-500), var(--warning-400)); }
+.mood-fill.mood-tier-5 { background: linear-gradient(90deg, var(--ink-700), var(--ink-500)); filter: grayscale(0.65) brightness(0.8); }
+.mood-label { padding: 0 var(--space-2); border: 0.0625rem solid var(--border-danger); border-radius: var(--radius-full); color: var(--danger-400); background: var(--surface-danger); font-size: var(--font-xs); font-style: normal; font-weight: 700; white-space: nowrap; }
 .hud-score, .hud-round { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 4.5rem; color: var(--text-muted); font-size: var(--font-xs); }
 .hud-score > div { display: flex; align-items: center; gap: var(--space-1); }
 .hud-score strong, .hud-round strong { color: var(--white); font-size: var(--font-lg); line-height: 1.2; }
@@ -403,9 +408,21 @@ body.in-battle #starCanvas { opacity: 0.35; }
 .rating-F { background: var(--danger-500); color: var(--white); }
 
 .chat-body { flex: 1; min-height: 20rem; padding: var(--space-5) var(--space-4) var(--space-20); display: flex; flex-direction: column; gap: var(--space-3); overflow-y: auto; scroll-behavior: smooth; scroll-padding-bottom: 9rem; }
+.round-progress { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-4); border-bottom: 0.0625rem solid var(--border-subtle); background: var(--surface-glass); }
+.round-progress .round-node { width: 1.5rem; height: 1.5rem; flex: 0 0 auto; display: grid; place-items: center; border: 0.0625rem solid var(--border-subtle); border-radius: var(--radius-full); color: var(--text-muted); background: var(--surface-muted); font-size: var(--font-xs); font-weight: 700; transition: all var(--duration-base) var(--ease-out); }
+.round-progress .round-node .round-node-label { display: grid; place-items: center; width: 100%; height: 100%; border-radius: inherit; }
+.round-progress .round-node.done { border-color: var(--border-violet); color: var(--violet-300); background: var(--surface-violet); }
+.round-progress .round-node.done .round-node-label { font-size: 0; }
+.round-progress .round-node.done .round-node-label::after { content: '✓'; font-size: var(--font-sm); }
+.round-progress .round-node.current { border-color: var(--violet-400); color: var(--white); background: var(--violet-600); box-shadow: 0 0 0.75rem var(--surface-hero-glow); }
+.round-progress .round-node.future { opacity: 0.45; }
+.round-banner { max-width: 92%; padding: var(--space-2) var(--space-4); border: 0.0625rem solid var(--border-violet); border-radius: var(--radius-full); color: var(--violet-200); background: var(--surface-violet); font-size: var(--font-xs); text-align: center; box-shadow: 0 0 1rem var(--surface-setup-glow); }
+.round-banner .round-banner-phase { color: var(--white); font-weight: 700; }
+.round-banner .round-banner-switch { color: var(--warning-400); font-weight: 700; }
 .chat-row { display: flex; align-items: flex-start; gap: var(--space-2); animation: bubble-in var(--duration-base) var(--ease-out); }
 .chat-row.row-player { justify-content: flex-end; }
 .chat-row.row-narration { justify-content: center; }
+.chat-row.row-round-banner { justify-content: center; margin-top: var(--space-1); }
 .chat-avatar { width: 2rem; height: 2rem; flex: 0 0 auto; display: grid; place-items: center; border: 0.0625rem solid var(--border-danger); border-radius: var(--radius-sm); background: var(--surface-danger); font-size: var(--font-base); }
 .chat-bubble { position: relative; max-width: 78%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: var(--font-sm); line-height: 1.75; word-break: auto-phrase; overflow-wrap: anywhere; }
 .bubble-scammer { border: 0.0625rem solid var(--border-violet); border-top-left-radius: var(--space-1); color: var(--text-primary); background: linear-gradient(135deg, var(--surface-muted), var(--surface-glass)); box-shadow: var(--shadow-sm); overflow: hidden; }
