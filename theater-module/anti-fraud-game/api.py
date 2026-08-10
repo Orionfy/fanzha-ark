@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from scenarios import scenarios
+from battle.router import router as battle_router
 import uuid
 
 app = FastAPI(title="反诈骗游戏API", description="提供反诈骗游戏的API接口")
@@ -15,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(battle_router)
 
 # 游戏状态存储（内存）
 games = {}
