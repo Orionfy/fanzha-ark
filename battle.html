@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="反诈方舟话术实战营：用真实自由对话练习识别与反击诈骗话术。">
+    <title>话术实战营 - 反诈方舟</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="battle-module/css/battle.css">
+</head>
+<body class="battle-body">
+<!--
+THESIS: Free-text defense is the spectacle; the page refuses quiz-card play and turns every typed reply into visible forensic evidence.
+OWN-WORLD: Deep-space violet glass, danger-red scammer pressure, blue player agency, and scanner-light feedback.
+STORY: Choose an opponent, enter a real chat, resist evolving tactics, then read a precise defense debrief.
+FIRST VIEWPORT: A luminous training-camp title sits over a compact combat telemetry strip and the script roster begins below.
+FORM: Immersive mobile messaging console, extended from the incumbent theater system.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<nav class="battle-nav" aria-label="主导航">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <a href="index.html#training" class="nav-back-link">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i><span>返回首页</span>
+        </a>
+        <div class="nav-title"><i class="bi bi-shield-check" aria-hidden="true"></i><span>话术实战营</span></div>
+        <button id="navRestartBtn" class="nav-restart-btn d-none" type="button">
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>重选剧本</span>
+        </button>
+    </div>
+</nav>
+
+<canvas id="starCanvas" aria-hidden="true"></canvas>
+
+<main class="battle-main">
+    <section id="view-home" class="view active" aria-labelledby="homeTitle">
+        <div class="view-home-hero">
+            <div class="hero-orbit hero-orbit-one" aria-hidden="true"></div>
+            <div class="hero-orbit hero-orbit-two" aria-hidden="true"></div>
+            <div class="hero-content animate-in visible">
+                <div class="hero-badge"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>自由对话 · 话术攻防</span></div>
+                <h1 id="homeTitle" class="hero-title">话术实战营</h1>
+                <p class="hero-subtitle">没有预设选项。输入你真正会说的话，<br>在<span class="no-break">骗子</span>不断变化的攻势中练出反诈本能。</p>
+                <div class="hero-stats" aria-label="实战营数据">
+                    <div class="hero-stat"><div class="stat-num">4</div><div class="stat-label">大高发骗局</div></div>
+                    <div class="stat-divider"></div>
+                    <div class="hero-stat"><div class="stat-num">30+</div><div class="stat-label">轮攻防</div></div>
+                    <div class="stat-divider"></div>
+                    <div class="hero-stat"><div class="stat-num">S</div><div class="stat-label">级防御评级</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="container home-content">
+            <div class="section-header">
+                <h2 class="section-title">选择你的对手</h2>
+                <p class="section-subtitle">每个对手都有不同的话术策略。<br>读懂信号，用自己的语言守住防线。</p>
+            </div>
+            <div id="scriptGrid" class="row g-4" aria-live="polite">
+                <div class="col-12 loading-state"><div class="spinner-border" role="status"><span class="visually-hidden">加载中</span></div><p>正在接入实战剧本...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-setup" class="view" aria-labelledby="setupTitle">
+        <div class="container">
+            <div class="setup-card animate-in visible">
+                <div class="setup-header">
+                    <div class="setup-scenario-icon" id="setupScenarioIcon"><i class="bi bi-chat-square-text" aria-hidden="true"></i></div>
+                    <div class="setup-scenario-info">
+                        <div class="setup-kicker">即将接入对话</div>
+                        <h2 id="setupTitle"><span id="setupScenarioName">剧本名称</span></h2>
+                        <p id="setupScenarioDesc">剧本描述</p>
+                        <div id="setupScenarioMeta" class="setup-tags"></div>
+                    </div>
+                </div>
+                <div class="setup-form">
+                    <h3 class="form-title"><i class="bi bi-person-badge" aria-hidden="true"></i> 设置对话称呼</h3>
+                    <p class="form-hint">骗子会根据这个称呼与你交流。</p>
+                    <div class="form-field">
+                        <label class="form-label" for="inputName">你的昵称</label>
+                        <input type="text" id="inputName" class="form-control" minlength="1" maxlength="10" autocomplete="nickname" placeholder="例如：小北" aria-describedby="nameHint nameFeedback">
+                        <div id="nameHint" class="input-hint"><i class="bi bi-info-circle" aria-hidden="true"></i> 这是你在骗子面前的称呼</div>
+                        <div class="form-feedback" id="nameFeedback" role="alert"></div>
+                    </div>
+                    <div class="setup-note"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>训练只分析本局回复，不会保存你的真实身份信息。</span></div>
+                    <div class="form-actions">
+                        <button class="btn-back" id="setupBackBtn" type="button"><i class="bi bi-arrow-left" aria-hidden="true"></i> 返回</button>
+                        <button class="btn-start" id="startBattleBtn" type="button"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i> 开始对战</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-battle" class="view view-battle-dark" aria-label="话术对战">
+        <div class="battle-shell">
+            <header class="scammer-bar">
+                <div id="scammerAvatar" class="scammer-avatar" aria-hidden="true"></div>
+                <div class="scammer-identity">
+                    <div class="scammer-name-line"><strong id="scammerName">对手</strong><span id="scammerTitle" class="scammer-title"></span></div>
+                    <p id="scammerSignature" class="scammer-signature"></p>
+                </div>
+                <div id="strategyChip" class="strategy-chip"><i class="bi bi-shield-exclamation" aria-hidden="true"></i><span>当前策略：未知</span></div>
+            </header>
+
+            <div class="battle-hud" aria-label="对战状态">
+                <div class="hud-item hud-hp">
+                    <div class="hud-label"><span><i class="bi bi-shield-fill-check" aria-hidden="true"></i> 警惕值</span><strong id="hpValue">100/100</strong></div>
+                    <div class="hud-track"><div id="hpFill" class="hud-fill hp-fill"></div></div>
+                </div>
+                <div class="hud-score"><span>防御评分</span><div><strong id="scoreValue">0</strong><span id="ratingChip" class="rating-chip rating-D">D</span></div></div>
+                <div class="hud-round"><span>回合</span><strong><span id="roundValue">1</span>/<span id="totalRounds">8</span></strong></div>
+                <div class="hud-item hud-mood">
+                    <div class="hud-label"><span><i id="moodIcon" class="bi bi-heart-pulse-fill" aria-hidden="true"></i> 骗子心态</span><strong id="moodValue">100</strong></div>
+                    <div class="hud-track"><div id="moodFill" class="hud-fill mood-fill"></div></div>
+                </div>
+            </div>
+
+            <div id="chatBody" class="chat-body" aria-live="polite" aria-label="对话记录"></div>
+
+            <div class="composer-panel">
+                <div id="signalPreview" class="signal-preview d-none" aria-label="本轮可疑信号"></div>
+                <div class="composer-row">
+                    <label class="visually-hidden" for="replyInput">输入你的回复</label>
+                    <textarea id="replyInput" rows="1" maxlength="500" placeholder="输入你的真实回复…" aria-describedby="composerHint"></textarea>
+                    <button id="sendReplyBtn" class="send-btn" type="button" aria-label="发送回复"><i class="bi bi-send-fill" aria-hidden="true"></i></button>
+                </div>
+                <div id="composerHint" class="composer-hint"><span>Enter 发送 · Shift + Enter 换行</span><span id="charCount">0/500</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-result" class="view" aria-labelledby="resultTitle">
+        <div class="container result-container">
+            <div id="resultCard" class="result-card animate-in visible"></div>
+        </div>
+    </section>
+</main>
+
+<div id="connFailOverlay" class="conn-fail-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="connFailTitle">
+    <div class="conn-fail-card">
+        <div class="conn-fail-icon"><i class="bi bi-plug" aria-hidden="true"></i></div>
+        <h2 id="connFailTitle">未连接游戏服务器</h2>
+        <p class="conn-fail-desc">话术实战营需要后端服务支持，请先启动反诈游戏后端：</p>
+        <div class="conn-fail-cmd"><code>cd battle-module/anti-fraud-game &amp;&amp; .conda/bin/python -m uvicorn api:app --port 8000</code></div>
+        <div class="conn-fail-actions">
+            <button id="retryConnBtn" class="btn-retry" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> 重试连接</button>
+            <a href="index.html#training" class="btn-back-home"><i class="bi bi-house" aria-hidden="true"></i> 返回首页</a>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast-container" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="battle-module/js/api.js"></script>
+<script src="battle-module/js/battle-main.js"></script>
+</body>
+</html>
