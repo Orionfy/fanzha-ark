@@ -101,6 +101,8 @@ class BattleState(BaseModel):
     cover: str
     round_no: int
     total_rounds: int
+    round_phase: str
+    round_title: str
     scammer: ScammerView
     scammer_msg: str
     signals: list[SignalView]
@@ -289,6 +291,17 @@ def _tell_state(scenario: BattleScenario, session: BattleSession) -> tuple[str, 
     return message, signals, "threat", TELL_STRATEGY_LABEL
 
 
+def _reaction_lines(scenario: BattleScenario, session: BattleSession) -> str | None:
+    """根据玩家上一轮意图与骗子当前心态，生成开场即时回应（无匹配时返回 None）。"""
+    feedback = session.feedback
+    if feedback is None:
+        return None
+    pool = scenario["rounds"][session.round_index].get("reactions", {}).get(feedback["intent"])
+    if not pool:
+        return None
+    return pool[0] if session.mood >= 50 else pool[-1]
+
+
 def _build_state(session: BattleSession) -> BattleState:
     scenario = BATTLE_SCENARIOS[session.scenario_id]
     if session.final_message:
@@ -300,15 +313,19 @@ def _build_state(session: BattleSession) -> BattleState:
         message, signals, strategy, strategy_label = _tell_state(scenario, session)
     else:
         battle_round = scenario["rounds"][session.round_index]
-        message = "\n".join(battle_round["lines"])
-        signals = scan_signals(message, scenario)
+        script = "\n".join(battle_round["lines"])
+        reaction = _reaction_lines(scenario, session)
+        message = f"{reaction}\n{script}" if reaction else script
+        signals = scan_signals(script, scenario)
         strategy = battle_round["strategy"]
         strategy_label = STRATEGY_LABELS[strategy]
     round_no = scenario["rounds"][session.round_index]["no"]
+    phase, title = scenario["round_meta"].get(round_no, ("", ""))
     return BattleState(
         battle_id=session.battle_id, scenario_id=session.scenario_id, scenario_name=scenario["name"],
         fraud_type=scenario["fraud_type"], cover=scenario["cover"], round_no=round_no,
-        total_rounds=len(scenario["rounds"]), scammer=ScammerView.model_validate(scenario["scammer"]),
+        total_rounds=len(scenario["rounds"]), round_phase=phase, round_title=title,
+        scammer=ScammerView.model_validate(scenario["scammer"]),
         scammer_msg=message, signals=[SignalView.model_validate(signal) for signal in signals],
         scammer_state=ScammerStateView(strategy=strategy, strategy_label=strategy_label, mood=session.mood),
         hp=session.hp, max_hp=100, score=session.score,
