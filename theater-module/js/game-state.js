@@ -11,9 +11,11 @@ const GameState = (function () {
         scenarioId: null,
         scenarioName: '',
         currentNode: null,
-        isAdvancing: false,    // 防止 auto 节点重复推进
         isEnded: false
     };
+
+    // 推进深度计数：允许 auto→auto 链嵌套推进，并防外部并发重复推进
+    let advanceDepth = 0;
 
     // DOM 引用（init 时绑定）
     let dom = {};
@@ -42,7 +44,7 @@ const GameState = (function () {
         state.scenarioId = userInfo.scenario_id;
         state.scenarioName = scenarioName;
         state.isEnded = false;
-        state.isAdvancing = false;
+        advanceDepth = 0;
 
         const data = await TheaterAPI.startGame(userInfo);
         state.gameId = data.game_id;
@@ -58,9 +60,11 @@ const GameState = (function () {
     async function renderNode(node) {
         state.currentNode = node;
 
-        // 设置当前场景 ID（供 ChatRenderer 拼接图片路径）
-        if (node.scenario_id) {
-            ChatRenderer.setScenarioId(node.scenario_id);
+        // 设置图片目录（供 ChatRenderer 拼接图片路径；回退到 scenario_id）
+        if (node.image_dir) {
+            ChatRenderer.setImageDir(node.image_dir);
+        } else if (node.scenario_id) {
+            ChatRenderer.setImageDir(node.scenario_id);
         }
 
         // 结局节点：交给上层处理
@@ -107,7 +111,12 @@ const GameState = (function () {
             }
         } else if (node.type === 'choice') {
             // choice 节点：渲染选项
-            renderChoices(node.choices || []);
+            const choices = node.choices || [];
+            if (choices.length === 0) {
+                handleApiError(new Error('剧情数据异常：当前节点没有选项'));
+                return;
+            }
+            renderChoices(choices);
         }
     }
 
@@ -165,10 +174,12 @@ const GameState = (function () {
 
     /**
      * 推进 auto 节点
+     * 通过深度计数支持连续 auto→auto 链（每个 auto 节点渲染完即推进到 next，
+     * 嵌套调用不会被拦截），同时防止外部并发重复推进。
      */
     async function advance() {
-        if (!state.gameId || state.isEnded || state.isAdvancing) return;
-        state.isAdvancing = true;
+        if (!state.gameId || state.isEnded) return;
+        advanceDepth++;
         try {
             const node = await TheaterAPI.advanceNode(state.gameId);
             await renderNode(node);
@@ -178,7 +189,7 @@ const GameState = (function () {
                 handleApiError(err);
             }
         } finally {
-            state.isAdvancing = false;
+            advanceDepth--;
         }
     }
 

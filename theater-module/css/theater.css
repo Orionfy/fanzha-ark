@@ -837,8 +837,13 @@ body.in-game #starCanvas { opacity: 0.4; }
 }
 .chat-row.row-scammer, .chat-row.row-police { justify-content: flex-start; }
 .chat-row.row-user { justify-content: flex-end; }
-.chat-row.row-narrator, .chat-row.row-system, .chat-row.row-image {
+.chat-row.row-narrator, .chat-row.row-system {
     justify-content: center;
+}
+/* 图片消息：仿聊天中"对方发来的图片"，左对齐展示 */
+.chat-row.row-image {
+    justify-content: flex-start;
+    padding-left: 44px;
 }
 
 .avatar {
@@ -912,27 +917,50 @@ body.in-game #starCanvas { opacity: 0.4; }
     max-width: 90%;
 }
 
-/* 图片占位卡 */
+/* 图片消息卡（仿聊天图片气泡） */
 .bubble-image {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 16px;
-    background: rgba(30, 41, 59, 0.85);
-    border: 1px solid rgba(56, 189, 248, 0.2);
+    padding: 6px;
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    border: 1px solid rgba(56, 189, 248, 0.18);
     border-radius: var(--radius-md);
     color: var(--bubble-text-light);
-    max-width: 280px;
+    max-width: 300px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
-/* 真实图片样式 */
+/* 真实图片样式：加载完成前隐藏（淡入），点击可放大查看 */
 .bubble-image .img-real {
     display: block;
-    max-width: 260px;
+    max-width: 288px;
     width: 100%;
-    max-height: 240px;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(56, 189, 248, 0.15);
+    max-height: 300px;
+    object-fit: contain;
+    border-radius: calc(var(--radius-md) - 4px);
+    background: rgba(148, 163, 184, 0.08);
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.25s ease;
+    cursor: zoom-in;
+}
+.bubble-image .img-real.loaded {
+    opacity: 1;
+}
+.bubble-image .img-real:hover {
+    transform: scale(1.02);
+}
+/* 放大查看（无遮罩的就地放大，点击还原） */
+.bubble-image .img-real.zoomed {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    max-width: min(86vw, 640px);
+    max-height: 82vh;
+    z-index: 2001;
+    border-radius: 10px;
+    box-shadow: 0 12px 60px rgba(0, 0, 0, 0.75);
+    cursor: zoom-out;
 }
 /* 图片加载失败时的回退卡片（复用原占位样式） */
 .bubble-image .img-fallback {

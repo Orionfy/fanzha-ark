@@ -18,6 +18,7 @@ scenarios = {
     "1": {
         "name": "理赔诈骗",
         "description": "模拟电商理赔诈骗场景",
+        "image_dir": "claim_fraud",
         "scenario": claim_fraud_scenario,
         "endings": claim_fraud_endings,
         "alert_node": "23",
@@ -30,6 +31,7 @@ scenarios = {
     "2": {
         "name": "裸聊诈骗",
         "description": "模拟裸聊+色情网站+约炮诱骗场景",
+        "image_dir": "sextortion_fraud",
         "scenario": sextortion_fraud_scenario,
         "endings": sextortion_fraud_endings,
         "alert_node": "alert_police",
@@ -42,6 +44,7 @@ scenarios = {
     "3": {
         "name": "黄牛票诈骗",
         "description": "模拟购买明星演唱会黄牛票诈骗场景",
+        "image_dir": "ticket_fraud",
         "scenario": ticket_fraud_scenario,
         "endings": ticket_fraud_endings,
         "alert_node": None,
@@ -54,6 +57,7 @@ scenarios = {
     "4": {
         "name": "假冒名牌诈骗",
         "description": "模拟购买低价化妆品、LV等大牌被骗场景",
+        "image_dir": "counterfeit_fraud",
         "scenario": counterfeit_fraud_scenario,
         "endings": counterfeit_fraud_endings,
         "alert_node": None,
@@ -66,6 +70,7 @@ scenarios = {
     "5": {
         "name": "杀猪盘诈骗",
         "description": "模拟网恋投资理财杀猪盘诈骗场景",
+        "image_dir": "pig_butcher_fraud",
         "scenario": pig_butcher_fraud_scenario,
         "endings": pig_butcher_fraud_endings,
         "alert_node": "alert_police",
@@ -78,6 +83,7 @@ scenarios = {
     "6": {
         "name": "刷单返利诈骗",
         "description": "模拟兼职刷单垫付返利诈骗场景",
+        "image_dir": "brushing_fraud",
         "scenario": brushing_fraud_scenario,
         "endings": brushing_fraud_endings,
         "alert_node": "alert_police",
@@ -90,6 +96,7 @@ scenarios = {
     "7": {
         "name": "冒充公检法诈骗",
         "description": "模拟假冒公安检察诈骗洗钱场景",
+        "image_dir": "impersonate_police_fraud",
         "scenario": impersonate_police_fraud_scenario,
         "endings": impersonate_police_fraud_endings,
         "alert_node": "alert_police",

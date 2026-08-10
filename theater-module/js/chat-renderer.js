@@ -6,8 +6,8 @@
 
 const ChatRenderer = (function () {
 
-    // 当前场景 ID（用于拼接图片路径）
-    let currentScenarioId = '';
+    // 当前场景图片目录（用于拼接图片路径）
+    let currentImageDir = '';
 
     // 角色检测正则
     const RE_SCAMMER = /^(👩‍💼|对方|骗子|客服|雯雯|淘乐购|蜜聊|黄牛|代购|卖家|陌生人|对方发话|对方说|对方继续)/;
@@ -75,15 +75,18 @@ const ChatRenderer = (function () {
             const card = document.createElement('div');
             card.className = 'bubble-image';
 
-            // 拼接图片路径：theater-module/images/<scenario_id>/<filename>
+            // 拼接图片路径：theater-module/images/<image_dir>/<filename>
             //（theater.html 位于根目录，资源路径以 theater-module/ 开头）
             const filename = info.text.trim();
-            const scenarioDir = currentScenarioId || 'unknown';
-            const imgPath = `theater-module/images/${scenarioDir}/${filename}`;
+            const imgPath = `theater-module/images/${currentImageDir || 'unknown'}/${filename}`;
 
-            // 先渲染真实图片，onerror 时回退到占位卡片
+            // 先渲染真实图片，onerror 时回退到占位卡片；
+            // 加载完成添加 loaded 淡入，点击图片可就地放大/还原
             card.innerHTML = `
                 <img class="img-real" src="${escapeHtml(imgPath)}" alt="${escapeHtml(filename)}"
+                     loading="lazy"
+                     onload="this.classList.add('loaded')"
+                     onclick="this.classList.toggle('zoomed')"
                      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                 <div class="img-fallback" style="display:none;">
                     <div class="img-icon"><i class="bi bi-image"></i></div>
@@ -251,11 +254,11 @@ const ChatRenderer = (function () {
     }
 
     /**
-     * 设置当前场景 ID（用于拼接图片路径）
-     * @param {string} scenarioId
+     * 设置当前场景图片目录（用于拼接图片路径）
+     * @param {string} imageDir
      */
-    function setScenarioId(scenarioId) {
-        currentScenarioId = scenarioId || '';
+    function setImageDir(imageDir) {
+        currentImageDir = imageDir || '';
     }
 
     return {
@@ -267,6 +270,6 @@ const ChatRenderer = (function () {
         hideTypingIndicator,
         scrollToBottom,
         clear,
-        setScenarioId
+        setImageDir
     };
 })();
