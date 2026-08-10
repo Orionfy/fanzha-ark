@@ -60,6 +60,7 @@ class GameState(BaseModel):
     next: Optional[str] = None
     scenario_id: str = ""
     scenario_name: str = ""
+    image_dir: str = ""
     is_ending: bool = False
     ending: Optional[dict] = None
 
@@ -113,6 +114,7 @@ def build_node_response(game_id):
         next=node.get("next"),
         scenario_id=scenario_id,
         scenario_name=scenario_meta["name"],
+        image_dir=scenario_meta.get("image_dir", ""),
         is_ending=is_ending,
         ending=ending_info
     )
