@@ -15,6 +15,14 @@
         F: { label: '防线失守', className: 'rating-F' }
     };
 
+    const MOOD_TIERS = [
+        { min: 80, label: '志在必得', icon: 'bi-fire', cls: 'mood-tier-1' },
+        { min: 60, label: '心态沉稳', icon: 'bi-heart-pulse-fill', cls: 'mood-tier-2' },
+        { min: 40, label: '开始动摇', icon: 'bi-emoji-neutral-fill', cls: 'mood-tier-3' },
+        { min: 20, label: '慌乱破绽', icon: 'bi-emoji-frown-fill', cls: 'mood-tier-4' },
+        { min: 0, label: '濒临崩溃', icon: 'bi-emoji-dizzy-fill', cls: 'mood-tier-5' }
+    ];
+
     const RESULT_TYPE_MAP = {
         win_expose: { emoji: '🔎', title: '拆穿骗子' },
         win_alarm: { emoji: '🚨', title: '报警完胜' },
@@ -50,9 +58,11 @@
         ratingChip: document.getElementById('ratingChip'),
         roundValue: document.getElementById('roundValue'),
         totalRounds: document.getElementById('totalRounds'),
+        roundProgress: document.getElementById('roundProgress'),
         moodIcon: document.getElementById('moodIcon'),
         moodValue: document.getElementById('moodValue'),
         moodFill: document.getElementById('moodFill'),
+        moodLabel: document.getElementById('moodLabel'),
         chatBody: document.getElementById('chatBody'),
         signalPreview: document.getElementById('signalPreview'),
         replyInput: document.getElementById('replyInput'),
@@ -69,6 +79,8 @@
     let battleState = null;
     let lastScammerBubble = null;
     let isBusy = false;
+    let lastRoundNo = 0;
+    let lastStrategy = '';
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -211,6 +223,8 @@
             renderScammerProfile(battleState);
             updateHud(battleState, false);
             renderSignalPreview(battleState.signals);
+            renderRoundProgress(battleState);
+            renderRoundBanner(battleState);
             appendNarration(`对战开始：你正在与【${battleState.scammer?.name || '未知对手'}】对话…`);
             setComposerEnabled(false);
             await renderScammerTurn(battleState.scammer_msg, battleState.scammer);
@@ -228,6 +242,9 @@
         dom.replyInput.value = '';
         dom.charCount.textContent = '0/500';
         lastScammerBubble = null;
+        lastRoundNo = 0;
+        lastStrategy = '';
+        if (dom.roundProgress) dom.roundProgress.innerHTML = '';
     }
 
     async function handleSendReply() {
@@ -252,6 +269,8 @@
             renderScammerProfile(nextState);
             updateHud(nextState, true);
             renderSignalPreview(nextState.signals);
+            renderRoundProgress(nextState);
+            renderRoundBanner(nextState);
 
             if (nextState.scammer_msg) {
                 await renderScammerTurn(nextState.scammer_msg, nextState.scammer);
@@ -315,6 +334,48 @@
         row.className = 'chat-row row-narration';
         row.innerHTML = `<div class="chat-bubble bubble-narration"><i class="bi bi-broadcast" aria-hidden="true"></i> ${escapeHtml(text)}</div>`;
         dom.chatBody.appendChild(row);
+    }
+
+    function renderRoundProgress(state) {
+        const roundNo = Number(state.round_no || 1);
+        const total = Number(state.total_rounds || 1);
+        const nodes = [];
+        for (let i = 1; i <= total; i++) {
+            let cls = 'round-node future';
+            let tip = `第 ${i} 轮`;
+            let content = `<span class="round-node-label">${i}</span>`;
+            if (i < roundNo) {
+                cls = 'round-node done';
+                tip = `第 ${i} 轮 · 已防御`;
+                content = '<span class="round-node-label" aria-hidden="true"></span>';
+            } else if (i === roundNo) {
+                cls = 'round-node current';
+                tip = `第 ${i} 轮 · ${state.round_phase || ''} · ${state.round_title || ''}`;
+            }
+            nodes.push(`<div class="${cls}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${content}</div>`);
+        }
+        dom.roundProgress.innerHTML = nodes.join('');
+    }
+
+    function renderRoundBanner(state) {
+        const roundNo = Number(state.round_no || 1);
+        const total = Number(state.total_rounds || 1);
+        if (roundNo === lastRoundNo) return;
+        const strategy = STRATEGY_MAP[state.scammer_state?.strategy] || null;
+        const parts = [`第 ${roundNo}/${total} 轮`];
+        if (state.round_phase) parts.push(state.round_phase);
+        if (state.round_title) parts.push(state.round_title);
+        let switchNote = '';
+        if (lastRoundNo > 0 && strategy && lastStrategy && strategy.label !== lastStrategy) {
+            switchNote = `<span class="round-banner-switch">策略转变：${escapeHtml(lastStrategy)} → ${escapeHtml(strategy.emoji)} ${escapeHtml(strategy.label)}</span>`;
+        }
+        const row = document.createElement('div');
+        row.className = 'chat-row row-round-banner';
+        row.innerHTML = `<div class="round-banner"><i class="bi bi-flag-fill" aria-hidden="true"></i> ${parts.map(escapeHtml).join(' · ')}${switchNote ? ` ${switchNote}` : ''}</div>`;
+        dom.chatBody.appendChild(row);
+        scrollChatToBottom();
+        lastRoundNo = roundNo;
+        lastStrategy = strategy ? strategy.label : '';
     }
 
     function showTypingIndicator() {
@@ -424,10 +485,12 @@
         dom.hpFill.style.transform = `scaleX(${hp / maxHp})`;
         dom.hpFill.classList.toggle('hp-mid', hp / maxHp <= 0.6 && hp / maxHp > 0.3);
         dom.hpFill.classList.toggle('hp-low', hp / maxHp <= 0.3);
+        const moodTier = MOOD_TIERS.find((t) => mood >= t.min) || MOOD_TIERS[MOOD_TIERS.length - 1];
         dom.moodValue.textContent = String(mood);
+        dom.moodLabel.textContent = moodTier.label;
         dom.moodFill.style.transform = `scaleX(${mood / 100})`;
-        dom.moodFill.classList.toggle('mood-soft', mood <= 45);
-        dom.moodIcon.className = `bi ${mood <= 45 ? 'bi-shield-slash-fill' : 'bi-heart-pulse-fill'}`;
+        dom.moodFill.className = `hud-fill mood-fill ${moodTier.cls}`;
+        dom.moodIcon.className = `bi ${moodTier.icon}`;
         dom.roundValue.textContent = String(state.round_no || 1);
         dom.totalRounds.textContent = String(state.total_rounds || 1);
         dom.ratingChip.className = `rating-chip ${RATING_MAP[rating].className}`;
