@@ -86,6 +86,14 @@
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
+            } else if (err.status === 404) {
+                // 后端已连接但版本过旧：运行中的后端是海龟汤上线前的旧进程（uvicorn 不会热加载新代码）
+                dom.puzzleGrid.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-arrow-repeat" style="font-size:2.5rem;color:#d97706;"></i>
+                        <p class="mt-3" style="font-weight:700;color:#b45309;">后端服务版本过旧，未加载海龟汤模块</p>
+                        <p class="text-muted" style="font-size:0.9rem;">请重启后端服务：在运行 uvicorn 的终端按 Ctrl+C 停止，<br>再重新执行启动命令后刷新本页</p>
+                    </div>`;
             } else {
                 dom.puzzleGrid.innerHTML = `
                     <div class="col-12 text-center py-5">
@@ -155,6 +163,9 @@
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
+            } else if (err.status === 404) {
+                // 后端已连接但版本过旧（无 /api/soup 路由）
+                showToast('后端版本过旧，未加载海龟汤模块，请重启后端服务');
             } else {
                 showToast(err.message);
             }

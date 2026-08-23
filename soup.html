@@ -158,7 +158,7 @@
         <h2>未连接游戏服务器</h2>
         <p class="conn-fail-desc">反诈海龟汤需要后端服务支持，请先启动反诈游戏后端：</p>
         <div class="conn-fail-cmd">
-            <code>cd theater-module/anti-fraud-game &amp;&amp; .conda/bin/python -m uvicorn api:app --port 8000</code>
+            <code>cd theater-module/anti-fraud-game &amp;&amp; .conda/bin/python -m uvicorn api:app --port 8000 --reload</code>
         </div>
         <div class="conn-fail-actions">
             <button id="retryConnBtn" class="btn-retry">

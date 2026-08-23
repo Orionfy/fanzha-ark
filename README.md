@@ -104,7 +104,7 @@ pip install fastapi==0.141.1 uvicorn==0.52.0 pydantic==2.13.4
 ```bash
 cd theater-module/anti-fraud-game
 conda activate ./.conda           # 或 source venv/bin/activate
-python -m uvicorn api:app --port 8000
+python -m uvicorn api:app --port 8000 --reload
 ```
 
 后端启动后访问 http://127.0.0.1:8000/api/scenarios 可查看场景列表。
