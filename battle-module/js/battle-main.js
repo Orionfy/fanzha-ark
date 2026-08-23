@@ -81,6 +81,9 @@
     let isBusy = false;
     let lastRoundNo = 0;
     let lastStrategy = '';
+    // 对话流令牌：开始新对战/中途退出时递增，使进行中的打字机与反馈动画立即失效，
+    // 避免旧剧情继续向新对局插入气泡（也消除退出后隐藏 DOM 的持续重绘开销）
+    let flowToken = 0;
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -218,6 +221,7 @@
         setStartBusy(true);
         try {
             battleState = await BattleAPI.startBattle(String(currentScenario.id), dom.inputName.value.trim());
+            flowToken += 1;  // 使旧对局残留的打字/反馈循环失效
             resetBattleSurface();
             switchView('battle');
             renderScammerProfile(battleState);
@@ -297,16 +301,20 @@
     }
 
     async function renderScammerTurn(message, scammer) {
+        const token = flowToken;
         const typingRow = showTypingIndicator();
         await delay(prefersReducedMotion() ? 50 : 520);
         typingRow.remove();
+        if (token !== flowToken) return;  // 对局已切换/退出：停止渲染
         const lines = String(message || '').split('\n').filter(line => line.trim());
         for (const line of lines) {
             const bubble = appendScammerMessage('', scammer);
-            await typeText(bubble.querySelector('.message-text'), line);
+            await typeText(bubble.querySelector('.message-text'), line, () => token !== flowToken);
+            if (token !== flowToken) return;
             lastScammerBubble = bubble;
             scrollChatToBottom();
             await delay(prefersReducedMotion() ? 0 : 160);
+            if (token !== flowToken) return;
         }
     }
 
@@ -389,7 +397,7 @@
         return row;
     }
 
-    async function typeText(target, text) {
+    async function typeText(target, text, shouldAbort) {
         const characters = Array.from(String(text));
         if (prefersReducedMotion()) {
             target.textContent = text;
@@ -399,6 +407,7 @@
         cursor.className = 'typing-cursor';
         target.appendChild(cursor);
         for (const character of characters) {
+            if (shouldAbort && shouldAbort()) { cursor.remove(); return; }
             cursor.before(document.createTextNode(character));
             await delay(25 + Math.random() * 15);
         }
@@ -406,11 +415,13 @@
     }
 
     async function revealFeedback(feedback, analyzedBubble) {
+        const token = flowToken;
         const scanner = feedback.scanner || [];
         if (analyzedBubble) {
             analyzedBubble.classList.add('scanning');
             await delay(prefersReducedMotion() ? 30 : 900);
             analyzedBubble.classList.remove('scanning');
+            if (token !== flowToken) return;  // 对局已切换/退出：停止渲染
             highlightSignals(analyzedBubble, scanner);
         }
 
@@ -536,6 +547,7 @@
     async function handleAbortBattle() {
         if (!battleState || battleState.is_over || isBusy) return;
         if (!window.confirm('确定结束当前对战并生成中途退出报告吗？')) return;
+        flowToken += 1;  // 立即中止进行中的打字机与反馈动画
         isBusy = true;
         setComposerEnabled(false);
         try {
@@ -603,7 +615,14 @@
         battleState = null;
     }
 
+    // 主页滚动位置记忆：离开列表页时记录，返回时恢复原浏览位置（不再强制跳回顶部）
+    let homeScrollY = 0;
+
     function switchView(name) {
+        // 离开 home 视图前记录当前滚动位置
+        if (dom.views.home && dom.views.home.classList.contains('active')) {
+            homeScrollY = window.scrollY;
+        }
         Object.values(dom.views).forEach(view => view.classList.remove('active'));
         const target = dom.views[name];
         if (!target) return;
@@ -614,7 +633,13 @@
         });
         document.body.classList.toggle('in-battle', name === 'battle');
         dom.navRestartBtn.classList.toggle('d-none', name !== 'battle');
-        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        if (name === 'home' && homeScrollY > 0) {
+            // 恢复离开列表页时的滚动位置（rAF 等视图 display 生效后再恢复，避免被布局修正覆盖）
+            requestAnimationFrame(() => window.scrollTo({ top: homeScrollY, behavior: 'auto' }));
+        } else {
+            // 其他视图：瞬时滚动到顶（切换瞬间已有大量入场动画，平滑滚动会逐帧强制 layout 造成卡顿）
+            window.scrollTo({ top: 0, behavior: 'auto' });
+        }
     }
 
     function setComposerEnabled(enabled) {
@@ -763,7 +788,14 @@
             }
         }
 
-        function draw() {
+        // 节流：星星闪烁极慢，20fps 与 60fps 肉眼无差别，可省约 2/3 的绘制开销
+        const FRAME_INTERVAL = 50; // ms（约 20fps）
+        let lastDrawTime = 0;
+
+        function draw(now) {
+            animationId = requestAnimationFrame(draw);
+            if (now - lastDrawTime < FRAME_INTERVAL) return;
+            lastDrawTime = now;
             context.clearRect(0, 0, canvas.width, canvas.height);
             for (const star of stars) {
                 star.alpha += star.twinkleSpeed * star.twinkleDirection;
@@ -773,11 +805,10 @@
                 context.fillStyle = `rgba(200, 220, 255, ${star.alpha})`;
                 context.fill();
             }
-            animationId = requestAnimationFrame(draw);
         }
 
         resize();
         window.addEventListener('resize', resize);
-        draw();
+        animationId = requestAnimationFrame(draw);
     }
 })();
