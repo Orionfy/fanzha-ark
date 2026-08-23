@@ -271,8 +271,9 @@
     }
 
     // ------------------ 退出游戏 ------------------
-    async function handleExitGame() {
-        await GameState.exit();
+    function handleExitGame() {
+        // 先切视图给即时反馈，后端会话清理放后台执行，不阻塞 UI
+        GameState.exit().catch(() => { /* 静默：退出时不再阻塞用户 */ });
         document.body.classList.remove('in-game');
         dom.navRestartBtn.classList.add('d-none');
         switchView('home');
@@ -324,7 +325,14 @@
     }
 
     // ------------------ 视图切换 ------------------
+    // 主页滚动位置记忆：离开列表页时记录，返回时恢复原浏览位置（不再强制跳回顶部）
+    let homeScrollY = 0;
+
     function switchView(name) {
+        // 离开 home 视图前记录当前滚动位置
+        if (dom.views.home && dom.views.home.classList.contains('active')) {
+            homeScrollY = window.scrollY;
+        }
         Object.values(dom.views).forEach(v => v.classList.remove('active'));
         const target = dom.views[name];
         if (target) {
@@ -334,7 +342,13 @@
                 el.classList.remove('visible');
                 requestAnimationFrame(() => el.classList.add('visible'));
             });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (name === 'home' && homeScrollY > 0) {
+                // 恢复离开列表页时的滚动位置（rAF 等视图 display 生效后再恢复，避免被布局修正覆盖）
+                requestAnimationFrame(() => window.scrollTo({ top: homeScrollY, behavior: 'auto' }));
+            } else {
+                // 其他视图：瞬时滚动到顶（切换瞬间已有大量入场动画，平滑滚动会逐帧强制 layout 造成卡顿）
+                window.scrollTo({ top: 0, behavior: 'auto' });
+            }
         }
 
         // 非游戏视图下移除 in-game 类
@@ -425,7 +439,14 @@
             }
         }
 
-        function draw() {
+        // 节流：星星闪烁极慢，20fps 与 60fps 肉眼无差别，可省约 2/3 的绘制开销
+        const FRAME_INTERVAL = 50; // ms（约 20fps）
+        let lastDrawTime = 0;
+
+        function draw(now) {
+            animId = requestAnimationFrame(draw);
+            if (now - lastDrawTime < FRAME_INTERVAL) return;
+            lastDrawTime = now;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             for (const s of stars) {
                 s.a += s.twinkleSpeed * s.twinkleDir;
@@ -435,12 +456,11 @@
                 ctx.fillStyle = `rgba(200, 220, 255, ${s.a})`;
                 ctx.fill();
             }
-            animId = requestAnimationFrame(draw);
         }
 
         resize();
         window.addEventListener('resize', resize);
-        draw();
+        animId = requestAnimationFrame(draw);
     }
 
 })();

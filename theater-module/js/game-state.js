@@ -17,6 +17,12 @@ const GameState = (function () {
     // 推进深度计数：允许 auto→auto 链嵌套推进，并防外部并发重复推进
     let advanceDepth = 0;
 
+    // 会话令牌：start/exit 时递增；旧的渲染循环（打字机/auto 推进）检测到令牌变化即中止
+    let renderToken = 0;
+
+    // 报警请求进行中标志（防止连点重复发送）
+    let isAlerting = false;
+
     // DOM 引用（init 时绑定）
     let dom = {};
 
@@ -41,6 +47,7 @@ const GameState = (function () {
      * @param {string} scenarioName
      */
     async function start(userInfo, scenarioName) {
+        renderToken++;  // 使旧的渲染循环（如有）失效
         state.scenarioId = userInfo.scenario_id;
         state.scenarioName = scenarioName;
         state.isEnded = false;
@@ -58,6 +65,7 @@ const GameState = (function () {
      * 渲染一个节点
      */
     async function renderNode(node) {
+        const token = renderToken;  // 捕获当前会话令牌
         state.currentNode = node;
 
         // 设置图片目录（供 ChatRenderer 拼接图片路径；回退到 scenario_id）
@@ -88,17 +96,30 @@ const GameState = (function () {
         // 内容渲染：逐行打字机
         const lines = node.content || [];
         for (const line of lines) {
+            // 会话已切换（退出/重开）：立即中止本轮渲染
+            if (token !== renderToken) return;
+
             const info = ChatRenderer.detectRole(line);
 
             // 对话角色（骗子/民警/用户）先显示"正在输入"
             if (['scammer', 'police', 'user'].includes(info.role)) {
                 ChatRenderer.showTypingIndicator(dom.chatBody, info.role);
                 await sleep(config.typingDelayBefore);
+                if (token !== renderToken) {
+                    ChatRenderer.hideTypingIndicator(dom.chatBody);
+                    return;
+                }
                 ChatRenderer.hideTypingIndicator(dom.chatBody);
             }
 
-            await ChatRenderer.typewriterAppend(dom.chatBody, info, config.typingSpeed);
+            await ChatRenderer.typewriterAppend(
+                dom.chatBody, info, config.typingSpeed,
+                () => token !== renderToken
+            );
         }
+
+        // 会话已切换：不再分发后续节点逻辑
+        if (token !== renderToken) return;
 
         // 根据节点类型分发
         if (node.type === 'auto' && node.next) {
@@ -106,7 +127,7 @@ const GameState = (function () {
             dom.autoHint.classList.remove('d-none');
             await sleep(config.autoNextDelay);
             dom.autoHint.classList.add('d-none');
-            if (!state.isEnded) {
+            if (!state.isEnded && token === renderToken) {
                 await advance();
             }
         } else if (node.type === 'choice') {
@@ -161,7 +182,8 @@ const GameState = (function () {
      * 提交报警
      */
     async function submitAlert() {
-        if (!state.gameId || state.isEnded) return;
+        if (!state.gameId || state.isEnded || isAlerting) return;
+        isAlerting = true;
         // 显示用户"报警"消息
         ChatRenderer.appendMessage(dom.chatBody, { role: 'user', text: '我要报警！' });
         try {
@@ -169,6 +191,8 @@ const GameState = (function () {
             await renderNode(node);
         } catch (err) {
             handleApiError(err);
+        } finally {
+            isAlerting = false;
         }
     }
 
@@ -228,15 +252,18 @@ const GameState = (function () {
     }
 
     /**
-     * 退出游戏：调用后端 DELETE
+     * 退出游戏：调用后端 DELETE（状态同步重置，请求后台进行不阻塞 UI）
      */
     async function exit() {
-        if (state.gameId) {
-            await TheaterAPI.endGame(state.gameId);
-        }
-        state.gameId = null;
+        renderToken++;  // 中止仍在进行的打字机与 auto 推进循环
+        isAlerting = false;
+        const gameId = state.gameId;   // 捕获旧会话 ID
+        state.gameId = null;           // 同步重置，避免"退出后立即重开"被旧请求的延续覆盖
         state.isEnded = false;
         state.currentNode = null;
+        if (gameId) {
+            await TheaterAPI.endGame(gameId);
+        }
     }
 
     function sleep(ms) {

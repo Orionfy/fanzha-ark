@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>反诈海龟汤 - 反诈方舟</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="soup-module/css/soup.css">
+</head>
+<body class="soup-body">
+
+<!-- ===== 顶部导航栏 ===== -->
+<nav class="soup-nav">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <a href="index.html#training" class="nav-back-link">
+            <i class="bi bi-arrow-left"></i>
+            <span>返回首页</span>
+        </a>
+        <div class="nav-title">
+            <i class="bi bi-lightbulb"></i>
+            <span>反诈海龟汤</span>
+        </div>
+        <button id="navExitBtn" class="nav-exit-btn d-none">
+            <i class="bi bi-box-arrow-right"></i>
+            <span>退出解谜</span>
+        </button>
+    </div>
+</nav>
+
+<!-- ===== 主容器：3 视图同屏切换 ===== -->
+<main class="soup-main">
+
+    <!-- 视图 A：谜题列表 -->
+    <section id="view-home" class="view active">
+        <div class="view-home-hero">
+            <div class="container">
+                <div class="hero-content animate-in visible">
+                    <div class="hero-badge">
+                        <i class="bi bi-search"></i>
+                        <span>沉浸式推理训练</span>
+                    </div>
+                    <h1 class="hero-title">反诈海龟汤</h1>
+                    <p class="hero-subtitle">一段离奇的案情「汤面」，藏在深处的真相「汤底」。<br>提出你的问题，主持人只回答「是 / 否 / 无关」——像侦探一样，把骗局一层层剥开。</p>
+                    <div class="hero-stats">
+                        <div class="hero-stat">
+                            <div class="stat-num">6</div>
+                            <div class="stat-label">推理谜题</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="hero-stat">
+                            <div class="stat-num">60</div>
+                            <div class="stat-label">关键线索</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="hero-stat">
+                            <div class="stat-num">5</div>
+                            <div class="stat-label">侦探评级</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="section-header text-center">
+                <h2 class="section-title">选择你的案件</h2>
+                <p class="section-subtitle">每个谜题都改编自真实诈骗手法，推理的过程就是识破骗局的过程</p>
+            </div>
+            <div id="puzzleGrid" class="row g-4">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">正在加载谜题...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 视图 B：解谜界面 -->
+    <section id="view-game" class="view view-game-dark">
+        <div class="soup-shell">
+
+            <!-- 汤面卡片 -->
+            <div id="surfaceCard" class="surface-card">
+                <div class="surface-card-header">
+                    <div class="surface-card-title" id="surfaceTitle">
+                        <i class="bi bi-file-earmark-text"></i> 汤面
+                    </div>
+                    <button id="surfaceToggle" class="surface-toggle">
+                        <i class="bi bi-chevron-up"></i> 收起汤面
+                    </button>
+                </div>
+                <div id="surfaceText" class="surface-text">
+                    <!-- 汤面内容由 JS 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 线索进度 -->
+            <div class="clue-progress">
+                <div class="clue-progress-label">
+                    <i class="bi bi-fingerprint"></i>
+                    线索 <span class="clue-progress-num"><span id="clueNum">0</span>/<span id="clueTotal">0</span></span>
+                </div>
+                <div class="clue-progress-bar">
+                    <div id="clueFill" class="clue-progress-fill"></div>
+                </div>
+                <div class="clue-progress-meta">
+                    提问 <span id="askCount">0</span> · 提示 <span id="hintCount">0</span>
+                </div>
+            </div>
+
+            <!-- 问答对话区 -->
+            <div id="qaBody" class="qa-body">
+                <!-- 问答由 JS 动态生成 -->
+            </div>
+
+            <!-- 输入区 -->
+            <div class="ask-bar">
+                <input type="text" id="askInput" class="ask-input" maxlength="200"
+                       placeholder="向主持人提问，例如：骗子是怎么知道他信息的？">
+                <button id="askSendBtn" class="ask-send-btn">
+                    <i class="bi bi-send"></i> 提问
+                </button>
+            </div>
+
+            <div class="ask-tools">
+                <button id="hintBtn" class="tool-btn">
+                    <i class="bi bi-lightbulb"></i> 要个提示
+                </button>
+                <button id="revealBtn" class="tool-btn">
+                    <i class="bi bi-eye"></i> 揭晓汤底
+                </button>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- 视图 C：汤底揭晓 -->
+    <section id="view-result" class="view">
+        <div class="container">
+            <div id="resultCard" class="result-card animate-in visible">
+                <!-- 结果内容由 JS 动态生成 -->
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ===== 连接失败遮罩 ===== -->
+<div id="connFailOverlay" class="conn-fail-overlay d-none">
+    <div class="conn-fail-card">
+        <div class="conn-fail-icon">
+            <i class="bi bi-plug"></i>
+        </div>
+        <h2>未连接游戏服务器</h2>
+        <p class="conn-fail-desc">反诈海龟汤需要后端服务支持，请先启动反诈游戏后端：</p>
+        <div class="conn-fail-cmd">
+            <code>cd theater-module/anti-fraud-game &amp;&amp; .conda/bin/python -m uvicorn api:app --port 8000</code>
+        </div>
+        <div class="conn-fail-actions">
+            <button id="retryConnBtn" class="btn-retry">
+                <i class="bi bi-arrow-clockwise"></i> 重试连接
+            </button>
+            <a href="index.html#training" class="btn-back-home">
+                <i class="bi bi-house"></i> 返回首页
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Toast 提示 ===== -->
+<div id="toast" class="toast-container"></div>
+
+<!-- ===== Scripts ===== -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="soup-module/js/api.js"></script>
+<script src="soup-module/js/soup-main.js"></script>
+</body>
+</html>

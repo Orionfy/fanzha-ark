@@ -4,6 +4,11 @@ from pydantic import BaseModel
 from typing import Optional
 from scenarios import scenarios
 from battle.router import router as battle_router
+from battle.engine import cleanup_expired_battles
+from soup.router import router as soup_router
+from soup.engine import cleanup_expired_soup_sessions
+import asyncio
+import time
 import uuid
 
 app = FastAPI(title="反诈骗游戏API", description="提供反诈骗游戏的API接口")
@@ -17,9 +22,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(battle_router)
+app.include_router(soup_router)
 
 # 游戏状态存储（内存）
 games = {}
+
+# 会话过期清理：30 分钟不活跃的会话由后台任务回收，防止内存泄漏
+SESSION_TTL_SECONDS = 30 * 60
+CLEANUP_INTERVAL_SECONDS = 5 * 60
+
+
+async def _cleanup_expired_sessions():
+    """后台任务：定期回收 theater / battle / soup 的过期会话"""
+    while True:
+        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+        now = time.time()
+        expired = [
+            gid for gid, gs in games.items()
+            if now - gs.get("last_active", now) > SESSION_TTL_SECONDS
+        ]
+        for gid in expired:
+            games.pop(gid, None)
+        cleanup_expired_battles(now, SESSION_TTL_SECONDS)
+        cleanup_expired_soup_sessions(now, SESSION_TTL_SECONDS)
+
+
+@app.on_event("startup")
+async def _start_cleanup_task():
+    asyncio.create_task(_cleanup_expired_sessions())
 
 # 性别 / 身份 中文映射
 GENDER_MAP = {"1": "男", "2": "女", "3": "其他"}
@@ -70,6 +100,7 @@ class GameState(BaseModel):
 def build_node_response(game_id):
     """构建当前节点的响应数据"""
     game_state = games[game_id]
+    game_state["last_active"] = time.time()  # 刷新活跃时间（TTL 清理依据）
     scenario_id = game_state["scenario_id"]
     scenario_meta = scenarios[scenario_id]
     scenario = scenario_meta["scenario"]
@@ -160,7 +191,9 @@ async def start_game(user_info: UserInfo):
         "game_id": game_id,
         "current_node": "0",
         "scenario_id": user_info.scenario_id,
-        "user_info": user_info.dict()
+        "user_info": user_info.dict(),
+        "last_active": time.time(),
+        "processing": False,
     }
     return build_node_response(game_id)
 
@@ -179,12 +212,18 @@ async def advance_node(game_id: str):
     if game_id not in games:
         raise HTTPException(status_code=404, detail="游戏不存在")
     game_state = games[game_id]
-    scenario = scenarios[game_state["scenario_id"]]["scenario"]
-    node = scenario.get(game_state["current_node"])
-    if not node or node["type"] != "auto" or "next" not in node:
-        raise HTTPException(status_code=400, detail="当前节点不支持自动推进")
-    game_state["current_node"] = node["next"]
-    return build_node_response(game_id)
+    if game_state.get("processing"):
+        raise HTTPException(status_code=409, detail="请求处理中，请勿重复提交")
+    game_state["processing"] = True
+    try:
+        scenario = scenarios[game_state["scenario_id"]]["scenario"]
+        node = scenario.get(game_state["current_node"])
+        if not node or node["type"] != "auto" or "next" not in node:
+            raise HTTPException(status_code=400, detail="当前节点不支持自动推进")
+        game_state["current_node"] = node["next"]
+        return build_node_response(game_id)
+    finally:
+        game_state["processing"] = False
 
 
 @app.post("/api/game/{game_id}/choice", response_model=GameState)
@@ -193,30 +232,36 @@ async def make_choice(game_id: str, choice: Choice):
     if game_id not in games:
         raise HTTPException(status_code=404, detail="游戏不存在")
     game_state = games[game_id]
-    scenario_meta = scenarios[game_state["scenario_id"]]
-    scenario = scenario_meta["scenario"]
-    node = scenario.get(game_state["current_node"])
+    if game_state.get("processing"):
+        raise HTTPException(status_code=409, detail="请求处理中，请勿重复提交")
+    game_state["processing"] = True
+    try:
+        scenario_meta = scenarios[game_state["scenario_id"]]
+        scenario = scenario_meta["scenario"]
+        node = scenario.get(game_state["current_node"])
 
-    if not node or node["type"] != "choice":
-        raise HTTPException(status_code=400, detail="当前节点不支持选择")
+        if not node or node["type"] != "choice":
+            raise HTTPException(status_code=400, detail="当前节点不支持选择")
 
-    selected = choice.choice
-    if selected == "报警":
-        alert_node = scenario_meta.get("alert_node")
-        if not alert_node:
-            raise HTTPException(status_code=400, detail="当前场景不支持报警")
-        game_state["current_node"] = alert_node
-    else:
-        try:
-            idx = int(selected) - 1
-            if 0 <= idx < len(node["choices"]):
-                game_state["current_node"] = node["choices"][idx][1]
-            else:
-                raise HTTPException(status_code=400, detail="选择无效")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="选择必须是数字")
+        selected = choice.choice
+        if selected == "报警":
+            alert_node = scenario_meta.get("alert_node")
+            if not alert_node:
+                raise HTTPException(status_code=400, detail="当前场景不支持报警")
+            game_state["current_node"] = alert_node
+        else:
+            try:
+                idx = int(selected) - 1
+                if 0 <= idx < len(node["choices"]):
+                    game_state["current_node"] = node["choices"][idx][1]
+                else:
+                    raise HTTPException(status_code=400, detail="选择无效")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="选择必须是数字")
 
-    return build_node_response(game_id)
+        return build_node_response(game_id)
+    finally:
+        game_state["processing"] = False
 
 
 @app.get("/api/games")

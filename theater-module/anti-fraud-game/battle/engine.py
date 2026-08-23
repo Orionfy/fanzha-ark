@@ -1,6 +1,7 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Final, Literal, assert_never
 from uuid import uuid4
+import time
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,6 +29,7 @@ TELL_SYNTHESIZED: Final[dict[str, Signal]] = {
     "2": {"keyword": "理赔流程", "label": "破绽暴露", "severity": "high", "explain": "对方慌乱中自相矛盾，正规客服绝不会如此语无伦次。"},
     "3": {"keyword": "投资平台", "label": "破绽暴露", "severity": "high", "explain": "骗子破防时把'表哥的平台'说了出来，情感包装彻底崩塌。"},
     "4": {"keyword": "安全账户", "label": "破绽暴露", "severity": "high", "explain": "冒牌'警察'急得漏出了真实目的——就是要你转账。"},
+    "5": {"keyword": "话术单", "label": "破绽暴露", "severity": "high", "explain": "骗子慌乱中承认'照话术单念'，威胁与深情都是流水线剧本。"},
 }
 
 
@@ -144,6 +146,7 @@ class BattleSession:
     told_round_no: int | None = None
     min_hp: int = 100
     recovered: bool = False
+    last_active: float = field(default_factory=time.time)
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +219,7 @@ def reply_to_battle(battle_id: str, text: str) -> BattleState:
         session,
         hp=hp, mood=mood, score=score, min_hp=min(session.min_hp, hp),
         feedback=feedback, log=(*session.log, log_entry), told=False,
+        last_active=time.time(),
     )
 
     intent = feedback["intent"]
@@ -271,6 +275,17 @@ def abort_battle(battle_id: str) -> BattleState:
 def delete_battle(battle_id: str) -> None:
     _get_session(battle_id)
     del battles[battle_id]
+
+
+def cleanup_expired_battles(now: float, ttl_seconds: int) -> int:
+    """回收超过 ttl 不活跃的对局会话，返回清理数量（由 api.py 后台任务周期调用）"""
+    expired = [
+        bid for bid, s in battles.items()
+        if now - s.last_active > ttl_seconds
+    ]
+    for bid in expired:
+        del battles[bid]
+    return len(expired)
 
 
 def _get_session(battle_id: str) -> BattleSession:
