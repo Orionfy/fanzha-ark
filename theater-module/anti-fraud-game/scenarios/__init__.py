@@ -5,6 +5,8 @@ from .counterfeit_fraud import counterfeit_fraud_scenario
 from .pig_butcher_fraud import pig_butcher_fraud_scenario
 from .brushing_fraud import brushing_fraud_scenario
 from .impersonate_police_fraud import impersonate_police_fraud_scenario
+from .ai_face_fraud import ai_face_fraud_scenario
+from .game_trade_fraud import game_trade_fraud_scenario
 from endings.claim_fraud.endings import claim_fraud_endings
 from endings.sextortion_fraud.endings import sextortion_fraud_endings
 from endings.ticket_fraud.endings import ticket_fraud_endings
@@ -12,6 +14,8 @@ from endings.counterfeit_fraud.endings import counterfeit_fraud_endings
 from endings.pig_butcher_fraud.endings import pig_butcher_fraud_endings
 from endings.brushing_fraud.endings import brushing_fraud_endings
 from endings.impersonate_police_fraud.endings import impersonate_police_fraud_endings
+from endings.ai_face_fraud.endings import ai_face_fraud_endings
+from endings.game_trade_fraud.endings import game_trade_fraud_endings
 
 # 情景列表（数据驱动：scenario 节点图 + endings 结局数据 + alert_node 报警跳转目标）
 scenarios = {
@@ -105,5 +109,31 @@ scenarios = {
         "tags": ["冒充公检法", "安全账户"],
         "difficulty": "★★★",
         "cover": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=75"
+    },
+    "8": {
+        "name": "AI 换脸诈骗",
+        "description": "模拟深夜\"亲人\"AI换脸视频借钱场景",
+        "image_dir": "ai_face_fraud",
+        "scenario": ai_face_fraud_scenario,
+        "endings": ai_face_fraud_endings,
+        "alert_node": "police_alert",
+        "icon": "bi-person-video3",
+        "theme": "fc-theme-5",
+        "tags": ["AI换脸", "盗号借钱"],
+        "difficulty": "★★★",
+        "cover": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&q=75"
+    },
+    "9": {
+        "name": "游戏账号交易诈骗",
+        "description": "模拟游戏账号高价收售与假担保平台骗局",
+        "image_dir": "game_trade_fraud",
+        "scenario": game_trade_fraud_scenario,
+        "endings": game_trade_fraud_endings,
+        "alert_node": "police_alert",
+        "icon": "bi-joystick",
+        "theme": "fc-theme-6",
+        "tags": ["游戏交易", "假担保"],
+        "difficulty": "★★☆",
+        "cover": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=75"
     }
 }
