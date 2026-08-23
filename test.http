@@ -1,0 +1,49 @@
+### 获取所有消息
+GET http://localhost:8001/api/treehole/messages
+
+### 发布一条消息
+POST http://localhost:8001/api/treehole/messages
+Content-Type: application/json
+
+{
+  "content": "献给你的不思议之国",
+  "mood": "爱丽丝"
+}
+
+### 发布一条消息（POST）
+POST http://localhost:8001/api/treehole/messages
+Content-Type: application/json
+
+{
+  "content": "这是测试消息",
+  "mood": "测试"
+}
+
+### 获取所有消息（GET 分页）
+GET http://localhost:8001/api/treehole/messages?page=1&page_size=5
+
+### 删除消息（DELETE，把 1 换成真实存在的 id）
+DELETE http://localhost:8001/api/treehole/messages/1
+
+
+
+
+### 1. 发布一条倾诉（POST）
+POST http://localhost:8001/api/treehole/messages
+Content-Type: application/json
+
+{
+  "content": "必须找到爱丽丝",
+  "mood": "爱丽丝"
+}
+
+### 2. 获取第1页（GET 分页）
+GET http://localhost:8001/api/treehole/messages?page=1&page_size=5
+
+### 3. 获取一条详情（GET 单条，记得改 id）
+GET http://localhost:8001/api/treehole/messages/1
+
+### 4. 删除一条（DELETE，记得改 id）
+DELETE http://localhost:8001/api/treehole/messages/1
+
+

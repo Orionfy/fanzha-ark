@@ -27,3 +27,11 @@ __pycache__/
 *.log
 tmp/
 .temp/
+
+
+# Python
+__pycache__/
+*.pyc
+messages.json
+.env
+.vscode/
