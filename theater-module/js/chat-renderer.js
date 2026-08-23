@@ -192,12 +192,14 @@ const ChatRenderer = (function () {
      * @param {HTMLElement} chatBody
      * @param {{role:string, text:string}} info
      * @param {number} speed - 每字毫秒（默认 35ms）
+     * @param {function|null} shouldAbort - 中止判断回调（返回 true 时立即停止打字，用于退出/重开游戏时取消旧渲染）
      * @returns {Promise<void>}
      */
-    function typewriterAppend(chatBody, info, speed = 35) {
+    function typewriterAppend(chatBody, info, speed = 35, shouldAbort = null) {
         return new Promise(resolve => {
             // 旁白/系统/分隔线/图片/空行：直接追加，不打字机
             if (['narrator', 'system', 'divider', 'image', 'empty'].includes(info.role)) {
+                if (shouldAbort && shouldAbort()) { resolve(); return; }
                 appendMessage(chatBody, info);
                 // 短暂延迟，让用户看到
                 setTimeout(resolve, info.role === 'divider' ? 200 : 400);
@@ -222,6 +224,12 @@ const ChatRenderer = (function () {
 
             let i = 0;
             const tick = () => {
+                // 会话已切换（退出/重开）：立即停止打字并清理光标
+                if (shouldAbort && shouldAbort()) {
+                    cursor.remove();
+                    resolve();
+                    return;
+                }
                 if (i >= fullText.length) {
                     cursor.remove();
                     resolve();
