@@ -2676,8 +2676,12 @@
         var hasEntered      = false;
         var enterLock       = false; // 防抖，避免重复触发
 
-        /* ── 初始锁定 body 滚动，防止滚轮穿透 ── */
-        document.body.style.overflow = 'hidden';
+        /* ── 初始锁定 body 滚动，防止滚轮穿透（带有效锚点如 #training 时直进主页，不锁定）── */
+        var initialHash = window.location.hash, hashTarget = null;
+        if (initialHash && initialHash.length > 1) {
+            try { hashTarget = document.querySelector(initialHash); } catch (e) { hashTarget = null; }
+        }
+        if (!hashTarget) document.body.style.overflow = 'hidden';
 
         /* ── 涟漪 ── */
         function createRipple(e){
@@ -2727,6 +2731,39 @@
             }, 650);
         }
 
+        /* ── 带锚点直进主页（从游戏返回 index.html#training 等场景）：跳过欢迎页，直接进入目标区块 ── */
+        if (hashTarget) {
+            hasEntered = true;
+            welcomeSection.classList.add('exited');
+            welcomeSection.style.display = 'none';          // 立即移除欢迎页，避免 .exited 延迟归零高度导致定位偏移（backToWelcome 会恢复 display）
+            document.body.classList.add('main-entered');
+            mainNavbar.classList.add('scrolled');
+            if (backBtn) backBtn.style.display = 'flex';
+            universeCanvas.style.opacity = '0';
+            universeCanvas.style.pointerEvents = 'none';
+            if (window.setUniverseRunning) window.setUniverseRunning(false);
+            function snapToHash(){
+                // 精致定位：优先对齐区块内的卡片网格（#training 的 4 张卡片），回退到区块本身
+                var grid = hashTarget.querySelector('.row.g-4');
+                if (grid) {
+                    // 卡片区顶部 = 网格位置 - 导航栏高度 - 呼吸间隙（瞬时，不受 html{scroll-behavior:smooth} 影响）
+                    var navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 76;
+                    var top = grid.getBoundingClientRect().top + window.scrollY - navH - 20;
+                    window.scrollTo({ top: Math.max(top, 0), behavior: 'instant' });
+                } else {
+                    hashTarget.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }
+                handleScroll();                                                     // 更新导航高亮
+            }
+            requestAnimationFrame(snapToHash);
+            // 关键：移除 URL hash，阻止浏览器在 DOMContentLoaded 后执行原生锚点定位
+            // （原生定位会按 scroll-margin-top 平滑滚到区块顶部，覆盖上面的精致定位）
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+            // 图片懒加载会改变布局高度，等全部加载后校正一次定位
+            if (document.readyState === 'complete') snapToHash();
+            else window.addEventListener('load', snapToHash);
+        }
+
         /* ── 返回引导页（丝滑版）── */
         function backToWelcome(){
             if (!hasEntered || enterLock) return;
@@ -2743,7 +2780,8 @@
             universeCanvas.style.opacity = '1';
             universeCanvas.style.pointerEvents = 'none';
 
-            // 3. 恢复引导页高度
+            // 3. 恢复引导页高度（display 恢复：带锚点直进主页时被隐藏）
+            welcomeSection.style.display = '';
             welcomeSection.style.height = '100vh';
             welcomeSection.style.overflow = '';
             window.scrollTo({ top: 0, behavior: 'auto' });
