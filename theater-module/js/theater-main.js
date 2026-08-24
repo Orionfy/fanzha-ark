@@ -17,6 +17,7 @@
         navRestartBtn: document.getElementById('navRestartBtn'),
         // 首页
         scenarioGrid: document.getElementById('scenarioGrid'),
+        statScenariosNum: document.getElementById('statScenarios'),
         // 角色设定
         setupScenarioIcon: document.getElementById('setupScenarioIcon'),
         setupScenarioName: document.getElementById('setupScenarioName'),
@@ -114,6 +115,10 @@
             const scenarios = await TheaterAPI.getScenarios();
             scenariosCache = scenarios;
             renderScenarioGrid(scenarios);
+            // 宣传数字以实际接口返回为准（避免静态文案失实）
+            if (dom.statScenariosNum) {
+                dom.statScenariosNum.textContent = String(scenarios.length);
+            }
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
@@ -121,7 +126,7 @@
                 dom.scenarioGrid.innerHTML = `
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-exclamation-triangle" style="font-size:2.5rem;color:var(--danger-color);"></i>
-                        <p class="mt-3 text-danger">${err.message}</p>
+                        <p class="mt-3 text-danger">${escapeHtml(err.message)}</p>
                     </div>`;
             }
         }
@@ -139,21 +144,21 @@
 
         dom.scenarioGrid.innerHTML = scenarios.map((s, idx) => {
             const stagger = (idx % 4) + 1;
-            const tags = (s.tags || []).map(t => `<span class="scenario-tag">${t}</span>`).join('');
+            const tags = (s.tags || []).map(t => `<span class="scenario-tag">${escapeHtml(t)}</span>`).join('');
             return `
                 <div class="col-md-6 col-lg-3 animate-in stagger-${stagger}">
-                    <div class="scenario-card theme-${s.theme.replace('fc-theme-', '')}" data-id="${s.id}">
+                    <div class="scenario-card theme-${escapeHtml(String(s.theme || '').replace('fc-theme-', ''))}" data-id="${escapeHtml(s.id)}">
                         <div class="scenario-card-cover">
-                            <img src="${s.cover}" alt="${s.name}" loading="lazy"
+                            <img src="${escapeHtml(s.cover)}" alt="${escapeHtml(s.name)}" loading="lazy"
                                  onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,var(--card-primary),var(--card-secondary))';">
                             <div class="scenario-card-cover-overlay">
-                                <span class="scenario-difficulty">难度 ${s.difficulty}</span>
+                                <span class="scenario-difficulty">难度 ${escapeHtml(s.difficulty)}</span>
                             </div>
                         </div>
                         <div class="scenario-card-body">
-                            <div class="scenario-icon"><i class="bi ${s.icon}"></i></div>
-                            <h3>${s.name}</h3>
-                            <p class="scenario-desc">${s.description}</p>
+                            <div class="scenario-icon"><i class="bi ${escapeHtml(s.icon)}"></i></div>
+                            <h3>${escapeHtml(s.name)}</h3>
+                            <p class="scenario-desc">${escapeHtml(s.description)}</p>
                             <div class="scenario-tags">${tags}</div>
                             <button class="scenario-enter-btn">
                                 <i class="bi bi-play-fill"></i> 进入剧场
@@ -183,11 +188,11 @@
     function selectScenario(scenario) {
         currentScenario = scenario;
         // 填充角色设定视图
-        dom.setupScenarioIcon.innerHTML = `<i class="bi ${scenario.icon}"></i>`;
+        dom.setupScenarioIcon.innerHTML = `<i class="bi ${escapeHtml(scenario.icon)}"></i>`;
         dom.setupScenarioName.textContent = scenario.name;
         dom.setupScenarioDesc.textContent = scenario.description;
         dom.setupScenarioTags.innerHTML = (scenario.tags || [])
-            .map(t => `<span class="scenario-tag">${t}</span>`).join('');
+            .map(t => `<span class="scenario-tag">${escapeHtml(t)}</span>`).join('');
         // 重置表单
         dom.inputName.value = '';
         dom.inputName.classList.remove('is-invalid');
@@ -265,7 +270,8 @@
     // ------------------ 报警 ------------------
     async function handleAlert() {
         if (!confirm('确定要报警吗？报警后警方将介入处理。')) return;
-        dom.alertBtn.classList.add('d-none');
+        // 不在此处隐藏按钮：请求失败时由 GameState.submitAlert 按
+        // currentNode.allow_alert 恢复显隐，成功则由新节点渲染接管
         showToast('正在拨号报警...', 'success');
         await GameState.submitAlert();
     }
@@ -381,14 +387,28 @@
         const ok = await TheaterAPI.ping();
         dom.retryConnBtn.disabled = false;
         dom.retryConnBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 重试连接';
-        if (ok) {
-            hideConnFail();
-            await loadScenarios();
-            switchView('home');
-            showToast('连接成功', 'success');
-        } else {
+        if (!ok) {
             showToast('仍无法连接，请确认后端已启动', 'error');
+            return;
         }
+        hideConnFail();
+        showToast('连接成功', 'success');
+
+        // 存活会话优先续接当前节点，而不是强制回首页丢弃进度
+        const st = GameState.state;
+        if (st.gameId && !st.isEnded) {
+            try {
+                const node = await TheaterAPI.getNode(st.gameId);
+                switchView('game');
+                await GameState.resume(node);
+                return;
+            } catch (_) {
+                // 会话已失效（如后端重启丢失内存会话）：清理残留状态后回首页
+                await GameState.exit().catch(() => {});
+            }
+        }
+        await loadScenarios();
+        switchView('home');
     }
 
     // ------------------ Toast ------------------
@@ -418,10 +438,11 @@
         let stars = [];
         let animId = null;
 
+        let starsResizeTimer = null;
+
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            initStars();
         }
 
         function initStars() {
@@ -459,7 +480,15 @@
         }
 
         resize();
-        window.addEventListener('resize', resize);
+        initStars();
+        // 窗口缩放防抖：200ms 停止后再重建星空，避免拖拽期间高频重算
+        window.addEventListener('resize', () => {
+            clearTimeout(starsResizeTimer);
+            starsResizeTimer = setTimeout(() => {
+                resize();
+                initStars();
+            }, 200);
+        });
         animId = requestAnimationFrame(draw);
     }
 

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="反诈方舟知识库：十大诈骗类型套路拆解、典型话术、识别信号与真实案例剖析，附知识自测挑战。">
+    <title>反诈知识库 - 反诈方舟</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="knowledge-module/css/knowledge.css">
+</head>
+<body class="kb-body">
+
+<!-- ===== 顶部导航栏 ===== -->
+<nav class="kb-nav">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <a href="index.html#training" class="nav-back-link">
+            <i class="bi bi-arrow-left"></i>
+            <span>返回首页</span>
+        </a>
+        <div class="nav-title">
+            <i class="bi bi-journal-bookmark-fill"></i>
+            <span>反诈知识库</span>
+        </div>
+        <button id="navExitBtn" class="nav-exit-btn d-none" type="button">
+            <i class="bi bi-box-arrow-right"></i>
+            <span>退出自测</span>
+        </button>
+    </div>
+</nav>
+
+<!-- ===== 主容器：5 视图同屏切换 ===== -->
+<main class="kb-main">
+
+    <!-- 视图 A：知识主页 -->
+    <section id="view-home" class="view active">
+        <div class="view-home-hero">
+            <div class="container">
+                <div class="hero-content animate-in visible">
+                    <div class="hero-badge">
+                        <i class="bi bi-book-half"></i>
+                        <span>知识武装 · 防骗于未然</span>
+                    </div>
+                    <h1 class="hero-title">反诈知识库</h1>
+                    <p class="hero-subtitle">十大诈骗类型的完整档案：套路如何步步设局、话术如何攻心、<br>信号在哪里露出马脚。读懂骗局，是最好的疫苗。</p>
+                    <div class="hero-stats">
+                        <div class="hero-stat">
+                            <div class="stat-num" id="statTopicCount">10</div>
+                            <div class="stat-label">诈骗类型全解析</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="hero-stat">
+                            <div class="stat-num">4</div>
+                            <div class="stat-label">级防诈称号</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="hero-stat">
+                            <div class="stat-num">1v1</div>
+                            <div class="stat-label">逐题复盘讲解</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container" style="padding-bottom: 56px;">
+            <div class="section-header animate-in visible">
+                <h2 class="section-title">选择诈骗类型</h2>
+                <p class="section-subtitle">支持按名称 / 摘要搜索，或按类别筛选</p>
+            </div>
+
+            <!-- 搜索 + 分类筛选 -->
+            <div class="kb-toolbar animate-in visible">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" class="search-input"
+                           placeholder="搜索诈骗类型，例如：刷单、AI 换脸…" autocomplete="off">
+                </div>
+                <div class="chip-row" id="chipRow" role="group" aria-label="分类筛选">
+                    <button class="filter-chip active" data-group="all" type="button"><i class="bi bi-grid-3x3-gap"></i> 全部</button>
+                    <button class="filter-chip" data-group="hot" type="button"><i class="bi bi-fire"></i> 高发类型</button>
+                    <button class="filter-chip" data-group="new" type="button"><i class="bi bi-cpu"></i> 新型手段</button>
+                </div>
+            </div>
+
+            <!-- 知识卡片网格 -->
+            <div id="topicGrid" class="row g-4" aria-live="polite">
+                <div class="col-12 loading-state">
+                    <div class="spinner-border" role="status"><span class="visually-hidden">加载中</span></div>
+                    <p>正在加载知识主题...</p>
+                </div>
+            </div>
+
+            <!-- 底部 CTA：知识自测挑战 -->
+            <div class="quiz-cta animate-in visible">
+                <div class="quiz-cta-icon"><i class="bi bi-mortarboard-fill"></i></div>
+                <div class="quiz-cta-text">
+                    <h3>知识自测挑战</h3>
+                    <p>学完就练：随机出题，即时判分，逐题解析你的薄弱环节，冲击「反诈专家」称号。</p>
+                </div>
+                <button id="quizCtaBtn" class="btn-quiz-start" type="button">
+                    <i class="bi bi-play-fill"></i> 开始挑战
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 视图 B：主题详情 -->
+    <section id="view-detail" class="view">
+        <div class="detail-shell">
+            <div id="detailBody">
+                <!-- 详情内容由 JS 动态生成 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- 视图 C：自测设置 -->
+    <section id="view-quiz-setup" class="view">
+        <div class="quiz-setup-shell">
+            <div class="quiz-setup-card animate-in visible">
+                <div class="quiz-setup-kicker">
+                    <i class="bi bi-mortarboard-fill"></i> KNOWLEDGE QUIZ
+                </div>
+                <h2>知识自测挑战</h2>
+                <p class="quiz-setup-desc">选择题量与出题范围，答完即时判分并生成逐题解析。</p>
+
+                <div class="setup-field">
+                    <label class="setup-label" id="countLabel">题量</label>
+                    <div class="count-chips" id="countChips" role="group" aria-labelledby="countLabel">
+                        <button class="count-chip active" data-count="5" type="button">5 题<small>快速过一遍</small></button>
+                        <button class="count-chip" data-count="10" type="button">10 题<small>完整挑战</small></button>
+                    </div>
+                </div>
+
+                <div class="setup-field">
+                    <label class="setup-label" for="topicSelect">出题范围</label>
+                    <select id="topicSelect" class="topic-select">
+                        <option value="">全部主题（混合出题）</option>
+                    </select>
+                </div>
+
+                <button id="quizStartBtn" class="btn-quiz-go" type="button">
+                    <i class="bi bi-play-fill"></i> 开始挑战
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 视图 D：答题中 -->
+    <section id="view-quiz-play" class="view">
+        <div class="quiz-play-shell">
+            <div class="quiz-progress">
+                <div class="quiz-progress-meta">
+                    <span id="quizProgressLabel">第 <strong>1</strong> / 5 题</span>
+                    <i class="bi bi-patch-check-fill" style="color:var(--kb-emerald-400);"></i>
+                </div>
+                <div class="quiz-progress-bar">
+                    <div id="quizProgressFill" class="quiz-progress-fill"></div>
+                </div>
+            </div>
+            <div id="quizStage">
+                <!-- 题目由 JS 动态生成 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- 视图 E：自测结果 -->
+    <section id="view-quiz-result" class="view">
+        <div class="result-shell">
+            <div id="quizResultCard" class="quiz-result-card animate-in visible">
+                <!-- 结果由 JS 动态生成 -->
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ===== 连接失败遮罩 ===== -->
+<div id="connFailOverlay" class="conn-fail-overlay d-none">
+    <div class="conn-fail-card">
+        <div class="conn-fail-icon">
+            <i class="bi bi-plug"></i>
+        </div>
+        <h2>无法连接服务</h2>
+        <p class="conn-fail-desc">反诈知识库需要后端服务支持，请确认后端已启动：</p>
+        <div class="conn-fail-cmd">
+            <code>cd theater-module/anti-fraud-game &amp;&amp; python -m uvicorn api:app --port 8000 --reload</code>
+        </div>
+        <div class="conn-fail-actions">
+            <button id="retryConnBtn" class="btn-retry" type="button">
+                <i class="bi bi-arrow-clockwise"></i> 重试连接
+            </button>
+            <a href="index.html#training" class="btn-back-home">
+                <i class="bi bi-house"></i> 返回首页
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Toast 提示 ===== -->
+<div id="toast" class="toast-container"></div>
+
+<!-- ===== Scripts ===== -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="knowledge-module/js/api.js"></script>
+<script src="knowledge-module/js/kb-main.js"></script>
+</body>
+</html>

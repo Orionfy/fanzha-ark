@@ -20,12 +20,20 @@ class Feedback(TypedDict):
 
 
 INTENT_PATTERNS: Final[tuple[tuple[Intent, tuple[str, ...]], ...]] = (
-    ("alert", (r"报警", r"110", r"派出所", r"警察", r"96110", r"举报", r"报警了", r"报网警", r"反诈中心", r"报案", r"网警")),
-    ("expose", (r"骗子", r"诈骗", r"套路", r"剧本", r"杀猪盘", r"刷单都是骗", r"骗人", r"你骗", r"别骗", r"骗我", r"假的吧", r"骗局", r"哄人", r"想骗", r"忽悠", r"割韭菜", r"上钩", r"真会编", r"接着编", r"继续编", r"戏真多", r"演的", r"装的", r"装得", r"编得", r"演得", r"套路深", r"影帝", r"呵呵", r"笑死", r"是托", r"个托", r"当托", r"演技", r"老套", r"骗鬼", r"才怪")),
+    # 不设裸「110」模式：「转110元」等金额/单号子串会被当成报警指令而即时终局
+    # （「拨打110」类真实意图必然同时含「报警」「派出所」等强信号词）
+    ("alert", (r"报警", r"96110", r"反诈专线", r"派出所", r"警察", r"举报", r"报警了", r"报网警", r"反诈中心", r"报案", r"网警")),
+    ("expose", (r"骗子", r"诈骗", r"套路", r"剧本", r"杀猪盘", r"刷单都是骗", r"骗人", r"你骗", r"别骗", r"骗我", r"假的吧", r"骗局", r"哄人", r"想骗", r"忽悠", r"割韭菜", r"上钩", r"真会编", r"接着编", r"继续编", r"戏真多", r"演的", r"装得", r"编得", r"演得", r"套路深", r"影帝", r"是托", r"个托", r"当托", r"演技", r"老套", r"骗鬼", r"才怪")),
     ("refuse", (r"不要", r"不需要", r"不用", r"再见", r"拉黑", r"没兴趣", r"别烦", r"滚", r"不聊", r"算了", r"不了", r"退出", r"删除", r"卸载", r"烦不烦", r"免了", r"拜拜", r"不奉陪", r"别浪费", r"没门", r"想都别想", r"不借", r"免谈", r"打住", r"拒绝", r"不行")),
     ("suspect", (r"真的假", r"怎么证明", r"凭什么", r"为什么", r"可靠", r"正规", r"验证", r"官网", r"核实", r"公司", r"执照", r"实名", r"安全", r"放心", r"靠谱", r"信任", r"查一下", r"太假", r"不合理", r"漏洞", r"平台", r"资质", r"官方", r"工号", r"身份", r"求证", r"查证", r"核对", r"截图", r"凭证", r"渠道", r"退款", r"咨询", r"求助", r"朋友", r"家人", r"回拨", r"不信", r"离谱", r"怀疑", r"不对劲", r"证据", r"证明", r"合同", r"发票", r"当面", r"视频确认")),
     ("stall", (r"等等", r"再想", r"考虑", r"明天", r"晚点", r"以后", r"再说", r"问问", r"商量", r"忙", r"先放一放", r"回头", r"改天", r"过两天", r"缓缓", r"放放", r"先不急", r"容我想想", r"稍后", r"缓一缓")),
     ("comply", (r"转账", r"汇款", r"打钱", r"付款", r"扫码", r"下载", r"注册", r"垫付", r"操作", r"任务", r"链接", r"填写", r"验证码", r"卡号", r"密码", r"收款", r"打款", r"转给", r"发我", r"输入", r"马上转", r"这就转", r"这就付")),
+)
+
+# 预编译意图正则：(intent, [(原始模式, 编译结果), ...])，避免每条回复重复编译
+_INTENT_COMPILED: Final[tuple[tuple[Intent, tuple[tuple[str, re.Pattern], ...]], ...]] = tuple(
+    (intent, tuple((pattern, re.compile(pattern, re.IGNORECASE)) for pattern in patterns))
+    for intent, patterns in INTENT_PATTERNS
 )
 
 INTENT_LABELS: Final[dict[Intent, str]] = {
@@ -75,11 +83,16 @@ LEAK_COMMENT: Final[str] = "你亲手交出了敏感信息！立即联系银行�
 
 def _first_match(text: str) -> tuple[Intent, str, int] | None:
     """返回最高优先级意图的首次匹配 (intent, keyword, start)。"""
-    for intent, patterns in INTENT_PATTERNS:
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return intent, pattern, match.start()
+    for intent, compiled_patterns in _INTENT_COMPILED:
+        for pattern, compiled in compiled_patterns:
+            match = compiled.search(text)
+            if not match:
+                continue
+            # suspect 的「验证」是 comply 的「验证码」前缀：文本出现完整
+            # 「验证码」时让位给 comply，确保真实提交验证码走泄露惩罚分支
+            if intent == "suspect" and pattern == r"验证" and "验证码" in text:
+                continue
+            return intent, pattern, match.start()
     return None
 
 
@@ -106,6 +119,13 @@ def _comply_after_negation(text: str, neg_end: int) -> bool:
     return False
 
 
+QUESTION_MARKERS: Final[tuple[str, ...]] = ("怎么", "如何", "凭什么", "吗", "？", "?")
+
+
+def _looks_like_question(text: str) -> bool:
+    return any(marker in text for marker in QUESTION_MARKERS)
+
+
 def classify_intent(text: str) -> Intent:
     normalized = re.sub(r"\s+", "", text)
     matched = _first_match(normalized)
@@ -116,7 +136,10 @@ def classify_intent(text: str) -> Intent:
         return intent
     if intent == "comply" and keyword in NEGATABLE_COMPLY:
         return "refuse"
-    if intent in ("alert", "expose") and keyword in NEGATABLE_IDENTITY:
+    # 身份否定翻转加疑问语态保护：「你怎么证明你不是骗子」是质疑而非拒绝
+    if intent == "alert" and keyword in NEGATABLE_IDENTITY and not _looks_like_question(normalized):
+        return "refuse"
+    if intent == "expose" and keyword in NEGATABLE_IDENTITY and not _looks_like_question(normalized):
         return "refuse"
     if intent == "suspect":
         neg_end = _negation_end(normalized, start)
@@ -183,10 +206,10 @@ def evaluate_reply(
             comment = "干净利落地拒绝，骗子最怕你这种硬茬！"
         case "suspect":
             rating, points, mood_delta = "A", 12, -10
-            hp_delta = 10 if strategy == "threat" else 0
+            hp_delta = 0
             comment = "主动核实而不跟随对方节奏，质疑让骗局漏洞显形。"
         case "stall":
-            rating, points, hp_delta, mood_delta = "C", 4, 5, -3
+            rating, points, hp_delta, mood_delta = "C", 4, 0, -3
             comment = "争取时间有助于冷静求助，但不要继续与骗子纠缠。"
         case "comply":
             rating, points, hp_delta, mood_delta = "F", 0, -25, 20

@@ -17,26 +17,47 @@ const ChatRenderer = (function () {
     const RE_SYSTEM = /^(【系统|【短信|【来电|【微信|【视频|【电话|【消息|【通知|【蜜聊|【淘乐购|📞|📱|━━)/;
     const RE_IMAGE = /^\[图片\]/;
     const RE_DIVIDER = /^[━─═]{6,}/;
+    // 「（时间戳/场景提示）」前缀：如 「（20:51）小周：…」，剥离后再识别角色
+    const RE_TIME_PREFIX = /^[（(]([^（()）]{1,24})[)）]\s*/;
+    // 说话人冒号结构：如 「林先生：你好」，用于判断前缀后是否为对白
+    const RE_SPEAKER_COLON = /^[^：:]{1,10}[：:]/;
 
     /**
      * 识别一行文本的角色
      * @param {string} line
-     * @returns {{role:string, text:string}}
+     * @returns {{role:string, text:string, timeLabel:string}}
      */
     function detectRole(line) {
-        const text = line.trim();
-        if (!text) return { role: 'empty', text: '' };
+        const raw = line.trim();
+        if (!raw) return { role: 'empty', text: '', timeLabel: '' };
 
-        if (RE_DIVIDER.test(text)) return { role: 'divider', text };
-        if (RE_IMAGE.test(text)) return { role: 'image', text: text.replace(/^\[图片\]\s*/, '') };
-        if (RE_SYSTEM.test(text)) return { role: 'system', text };
-        if (RE_NARRATOR.test(text)) return { role: 'narrator', text };
-        if (RE_POLICE.test(text)) return { role: 'police', text };
-        if (RE_SCAMMER.test(text)) return { role: 'scammer', text };
-        if (RE_USER.test(text)) return { role: 'user', text };
+        if (RE_DIVIDER.test(raw)) return { role: 'divider', text: raw, timeLabel: '' };
+        if (RE_IMAGE.test(raw)) return { role: 'image', text: raw.replace(/^\[图片\]\s*/, ''), timeLabel: '' };
+
+        // 剥离时间戳/场景提示前缀，防止带时间戳的对白被误判为旁白
+        let text = raw;
+        let timeLabel = '';
+        const prefixed = raw.match(RE_TIME_PREFIX);
+        if (prefixed) {
+            timeLabel = prefixed[1].trim();
+            text = raw.slice(prefixed[0].length).trim();
+            if (!text) return { role: 'narrator', text: raw, timeLabel: '' };
+        }
+
+        if (RE_SYSTEM.test(text)) return { role: 'system', text, timeLabel: '' };
+        if (RE_NARRATOR.test(text)) return { role: 'narrator', text, timeLabel: '' };
+        if (RE_POLICE.test(text)) return { role: 'police', text, timeLabel };
+        if (RE_SCAMMER.test(text)) return { role: 'scammer', text, timeLabel };
+        if (RE_USER.test(text)) return { role: 'user', text, timeLabel };
+
+        // 带时间戳但说话人不在已知名单：有冒号结构视为骗子台词，否则保持旁白
+        if (prefixed) {
+            if (RE_SPEAKER_COLON.test(text)) return { role: 'scammer', text, timeLabel };
+            return { role: 'narrator', text: raw, timeLabel: '' };
+        }
 
         // 默认：根据上下文判定为骗子（场景中骗子台词最多）
-        return { role: 'scammer', text };
+        return { role: 'scammer', text, timeLabel: '' };
     }
 
     /**
@@ -113,6 +134,14 @@ const ChatRenderer = (function () {
         const bubble = document.createElement('div');
         bubble.className = `bubble bubble-${info.role}`;
         bubble.textContent = info.text;
+
+        // 时间戳前缀（如 20:51）：以小徽标呈现在气泡旁
+        if (info.timeLabel) {
+            const chip = document.createElement('span');
+            chip.className = 'msg-time-chip';
+            chip.textContent = info.timeLabel;
+            row.appendChild(chip);
+        }
 
         // 用户消息：头像在右
         if (info.role === 'user') {

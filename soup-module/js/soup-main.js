@@ -10,6 +10,8 @@
     let puzzlesCache = [];
     let currentSession = null;      // 后端返回的会话数据（含 session_id）
     let isAsking = false;           // 防重复提交
+    let isSelecting = false;        // 谜题卡片进入中的防抖标志
+    let hintExhausted = false;      // 方向提示是否已全部用完（用尽后禁用提示按钮）
 
     // ------------------ DOM ------------------
     const dom = {};
@@ -119,15 +121,15 @@
             const tags = (p.tags || []).map(t => `<span class="puzzle-tag">${escapeHtml(t)}</span>`).join('');
             return `
                 <div class="col-md-6 col-lg-4 animate-in stagger-${stagger}">
-                    <div class="puzzle-card" data-id="${p.id}">
+                    <div class="puzzle-card" data-id="${escapeHtml(p.id)}">
                         <div class="puzzle-card-cover">
-                            <img src="${p.cover}" alt="${escapeHtml(p.name)}" loading="lazy"
+                            <img src="${escapeHtml(p.cover)}" alt="${escapeHtml(p.name)}" loading="lazy"
                                  onerror="this.style.display='none';">
                             <div class="puzzle-card-cover-overlay"></div>
-                            <span class="puzzle-difficulty">难度 ${p.difficulty}</span>
+                            <span class="puzzle-difficulty">难度 ${escapeHtml(p.difficulty)}</span>
                         </div>
                         <div class="puzzle-card-body">
-                            <div class="puzzle-icon"><i class="bi ${p.icon}"></i></div>
+                            <div class="puzzle-icon"><i class="bi ${safeIcon(p.icon)}"></i></div>
                             <h3>${escapeHtml(p.name)}</h3>
                             <p class="puzzle-desc">${escapeHtml(p.description)}</p>
                             <div class="puzzle-tags">${tags}</div>
@@ -156,9 +158,12 @@
 
     // ------------------ 解谜流程 ------------------
     async function selectPuzzle(puzzle) {
+        if (isSelecting) return;  // 双击防护：避免重复创建孤儿会话
+        isSelecting = true;
         try {
             const state = await SoupAPI.startPuzzle(puzzle.id);
             currentSession = state;
+            hintExhausted = false;
             enterGameView(state);
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
@@ -169,6 +174,8 @@
             } else {
                 showToast(err.message);
             }
+        } finally {
+            isSelecting = false;
         }
     }
 
@@ -216,8 +223,10 @@
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
+            } else if (err.status === 404) {
+                handleExpiredSession();
             } else {
-                appendHostBubble('（连接出了点问题：' + err.message + '）', 'irrelevant', '系统');
+                appendHostBubble('（出了点问题：' + err.message + '）', 'irrelevant', '系统');
             }
         } finally {
             isAsking = false;
@@ -227,31 +236,41 @@
     }
 
     async function handleHint() {
-        if (!currentSession || isAsking) return;
+        if (!currentSession || isAsking || hintExhausted) return;
         isAsking = true;
         dom.hintBtn.disabled = true;
         try {
             const result = await SoupAPI.getHint(currentSession.session_id);
             appendHostBubble('💡 提示：' + result.hint, 'hint', '侦探事务所');
             if (dom.hintCountEl) dom.hintCountEl.textContent = result.hints_used;
-            showToast('已发放提示（会影响最终评级）');
+            if (result.exhausted || (Number(result.remaining) || 0) <= 0) {
+                hintExhausted = true;
+                showToast('方向提示已全部使用完毕');
+                dom.hintBtn.disabled = true;
+            } else {
+                showToast(`已发放提示（会影响最终评级），剩余 ${result.remaining} 条`);
+            }
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
+            } else if (err.status === 404) {
+                handleExpiredSession();
             } else {
                 showToast(err.message);
             }
         } finally {
             isAsking = false;
-            dom.hintBtn.disabled = false;
+            if (!hintExhausted) dom.hintBtn.disabled = false;
             dom.askInput.focus();
         }
     }
 
     async function handleReveal() {
-        if (!currentSession) return;
+        if (!currentSession || isAsking) return;
         if (!confirm('确定要揭晓汤底吗？揭晓后将无法继续提问本局。')) return;
 
+        isAsking = true;
+        dom.revealBtn.disabled = true;
         try {
             const finalState = await SoupAPI.revealAnswer(currentSession.session_id);
             renderResult(finalState);
@@ -259,10 +278,23 @@
         } catch (err) {
             if (err.isConnectionError && err.isConnectionError()) {
                 showConnFail();
+            } else if (err.status === 404) {
+                handleExpiredSession();
             } else {
                 showToast(err.message);
             }
+        } finally {
+            isAsking = false;
+            dom.revealBtn.disabled = false;
         }
+    }
+
+    // 会话已被服务端回收（TTL 过期/后端重启）：给出明确引导并退出到谜题列表
+    function handleExpiredSession() {
+        currentSession = null;
+        switchView('home');
+        showToast('这场解谜的会话已过期，请重新选择谜题开始');
+        if (!puzzlesCache.length) loadPuzzles();
     }
 
     function handleExit() {
@@ -286,7 +318,10 @@
         dom.clueTotal.textContent = total;
         dom.clueFill.style.width = pct + '%';
         if (dom.askCountEl) dom.askCountEl.textContent = data.ask_count ?? 0;
-        if (dom.hintCountEl) dom.hintCountEl.textContent = data.hints_used ?? 0;
+        // AskResult 不含 hints_used 时保持现值，防止提示计数被提问重置为 0
+        if (dom.hintCountEl && data.hints_used !== undefined) {
+            dom.hintCountEl.textContent = data.hints_used;
+        }
     }
 
     function setToolsEnabled(enabled) {
@@ -348,7 +383,7 @@
                 <div class="missed-clue-list">
                     ${res.missed_clues.map(c => `
                         <div class="missed-clue-item">
-                            <span class="missed-clue-answer ${c.answer}">${c.answer === 'yes' ? '是' : '否'}</span>${escapeHtml(c.answer_text)}
+                            <span class="missed-clue-answer ${safeAnswerClass(c.answer)}">${c.answer === 'yes' ? '是' : '否'}</span>${escapeHtml(c.answer_text)}
                         </div>`).join('')}
                 </div>
             </div>` : '';
@@ -364,7 +399,7 @@
 
         dom.resultCard.innerHTML = `
             <div class="result-hero">
-                <div class="rating-badge rating-${res.rating}">${res.rating}</div>
+                <div class="rating-badge rating-${safeRatingClass(res.rating)}">${escapeHtml(res.rating)}</div>
                 <h2>${escapeHtml(state.puzzle_name)} · 汤底揭晓</h2>
                 <div class="rating-label">侦探评级：${escapeHtml(res.rating_label)}</div>
                 <div class="result-stats">
@@ -405,6 +440,18 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function safeIcon(value) {
+        return /^bi-[a-z0-9-]+$/i.test(String(value || '')) ? String(value) : 'bi-journal-text';
+    }
+
+    function safeRatingClass(value) {
+        return /^[SABCD]$/.test(String(value)) ? String(value) : 'NA';
+    }
+
+    function safeAnswerClass(value) {
+        return value === 'yes' || value === 'no' ? String(value) : 'irrelevant';
     }
 
     function showConnFail() {

@@ -69,6 +69,8 @@
         sendReplyBtn: document.getElementById('sendReplyBtn'),
         charCount: document.getElementById('charCount'),
         resultCard: document.getElementById('resultCard'),
+        statScenarioCount: document.getElementById('statScenarioCount'),
+        statRoundCount: document.getElementById('statRoundCount'),
         connFailOverlay: document.getElementById('connFailOverlay'),
         retryConnBtn: document.getElementById('retryConnBtn'),
         toast: document.getElementById('toast')
@@ -84,6 +86,9 @@
     // 对话流令牌：开始新对战/中途退出时递增，使进行中的打字机与反馈动画立即失效，
     // 避免旧剧情继续向新对局插入气泡（也消除退出后隐藏 DOM 的持续重绘开销）
     let flowToken = 0;
+    // 跳过请求：动画进行中（composer 禁用态）点击聊天区置真，打字机/反馈延迟据此加速
+    let skipRequested = false;
+    let roundProgressNodes = [];
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -100,10 +105,17 @@
         dom.navRestartBtn.addEventListener('click', handleAbortBattle);
         dom.retryConnBtn.addEventListener('click', handleRetryConnection);
         dom.inputName.addEventListener('input', validateName);
+        dom.chatBody.addEventListener('click', event => {
+            if (!dom.replyInput.disabled) return;
+            if (event.target.closest('.feedback-panel, button')) return;
+            skipRequested = true;
+        });
         dom.replyInput.addEventListener('input', () => {
             dom.charCount.textContent = `${dom.replyInput.value.length}/500`;
+            autosizeReplyInput();
         });
         dom.replyInput.addEventListener('keydown', event => {
+            if (event.isComposing || event.keyCode === 229) return;  // 输入法组合态（拼音候选确认）不触发发送
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 handleSendReply();
@@ -116,6 +128,7 @@
             const scenarios = await BattleAPI.getScenarios();
             scenariosCache = scenarios;
             renderScriptGrid(scenarios);
+            updateHeroStats(scenarios);
         } catch (error) {
             handleApiError(error, true);
         }
@@ -231,6 +244,7 @@
             renderRoundBanner(battleState);
             appendNarration(`对战开始：你正在与【${battleState.scammer?.name || '未知对手'}】对话…`);
             setComposerEnabled(false);
+            skipRequested = false;
             await renderScammerTurn(battleState.scammer_msg, battleState.scammer);
             setComposerEnabled(true);
             dom.replyInput.focus();
@@ -245,9 +259,11 @@
         dom.chatBody.innerHTML = '';
         dom.replyInput.value = '';
         dom.charCount.textContent = '0/500';
+        autosizeReplyInput();
         lastScammerBubble = null;
         lastRoundNo = 0;
         lastStrategy = '';
+        roundProgressNodes = [];
         if (dom.roundProgress) dom.roundProgress.innerHTML = '';
     }
 
@@ -262,10 +278,13 @@
 
         const analyzedBubble = lastScammerBubble;
         appendPlayerMessage(text);
+        const typedText = text;
         dom.replyInput.value = '';
         dom.charCount.textContent = '0/500';
+        autosizeReplyInput();
         setComposerEnabled(false);
         isBusy = true;
+        skipRequested = false;
 
         try {
             const nextState = await BattleAPI.reply(battleState.battle_id, text);
@@ -294,6 +313,9 @@
             dom.replyInput.focus();
         } catch (error) {
             handleApiError(error);
+            dom.replyInput.value = typedText;
+            dom.charCount.textContent = `${typedText.length}/500`;
+            autosizeReplyInput();
             setComposerEnabled(true);
         } finally {
             isBusy = false;
@@ -303,17 +325,20 @@
     async function renderScammerTurn(message, scammer) {
         const token = flowToken;
         const typingRow = showTypingIndicator();
-        await delay(prefersReducedMotion() ? 50 : 520);
+        await delay(prefersReducedMotion() || skipRequested ? 50 : 520);
         typingRow.remove();
         if (token !== flowToken) return;  // 对局已切换/退出：停止渲染
         const lines = String(message || '').split('\n').filter(line => line.trim());
         for (const line of lines) {
             const bubble = appendScammerMessage('', scammer);
+            const row = bubble.closest('.chat-row');
+            if (row) row.setAttribute('aria-hidden', 'true');
             await typeText(bubble.querySelector('.message-text'), line, () => token !== flowToken);
+            if (row) row.removeAttribute('aria-hidden');
             if (token !== flowToken) return;
             lastScammerBubble = bubble;
             scrollChatToBottom();
-            await delay(prefersReducedMotion() ? 0 : 160);
+            await delay(prefersReducedMotion() ? 0 : (skipRequested ? 50 : 160));
             if (token !== flowToken) return;
         }
     }
@@ -347,22 +372,44 @@
     function renderRoundProgress(state) {
         const roundNo = Number(state.round_no || 1);
         const total = Number(state.total_rounds || 1);
-        const nodes = [];
-        for (let i = 1; i <= total; i++) {
+        if (roundProgressNodes.length !== total) buildRoundProgressNodes(total);
+        roundProgressNodes.forEach((node, index) => {
+            const roundIndex = index + 1;
             let cls = 'round-node future';
-            let tip = `第 ${i} 轮`;
-            let content = `<span class="round-node-label">${i}</span>`;
-            if (i < roundNo) {
+            let tip = `第 ${roundIndex} 轮`;
+            if (roundIndex < roundNo) {
                 cls = 'round-node done';
-                tip = `第 ${i} 轮 · 已防御`;
-                content = '<span class="round-node-label" aria-hidden="true"></span>';
-            } else if (i === roundNo) {
+                tip = `第 ${roundIndex} 轮 · 已防御`;
+            } else if (roundIndex === roundNo) {
                 cls = 'round-node current';
-                tip = `第 ${i} 轮 · ${state.round_phase || ''} · ${state.round_title || ''}`;
+                tip = `第 ${roundIndex} 轮 · ${state.round_phase || ''} · ${state.round_title || ''}`;
             }
-            nodes.push(`<div class="${cls}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${content}</div>`);
+            node.className = cls;
+            node.title = tip;
+            node.setAttribute('aria-label', tip);
+            const label = node.querySelector('.round-node-label');
+            if (label) {
+                if (roundIndex < roundNo) label.setAttribute('aria-hidden', 'true');
+                else label.removeAttribute('aria-hidden');
+            }
+        });
+    }
+
+    function buildRoundProgressNodes(total) {
+        dom.roundProgress.innerHTML = '';
+        roundProgressNodes = [];
+        for (let i = 1; i <= total; i++) {
+            const node = document.createElement('div');
+            node.className = 'round-node future';
+            node.title = `第 ${i} 轮`;
+            node.setAttribute('aria-label', `第 ${i} 轮`);
+            const label = document.createElement('span');
+            label.className = 'round-node-label';
+            label.textContent = String(i);
+            node.appendChild(label);
+            dom.roundProgress.appendChild(node);
+            roundProgressNodes.push(node);
         }
-        dom.roundProgress.innerHTML = nodes.join('');
     }
 
     function renderRoundBanner(state) {
@@ -406,9 +453,13 @@
         const cursor = document.createElement('span');
         cursor.className = 'typing-cursor';
         target.appendChild(cursor);
-        for (const character of characters) {
+        for (let index = 0; index < characters.length; index++) {
             if (shouldAbort && shouldAbort()) { cursor.remove(); return; }
-            cursor.before(document.createTextNode(character));
+            if (skipRequested) {
+                cursor.before(document.createTextNode(characters.slice(index).join('')));
+                break;
+            }
+            cursor.before(document.createTextNode(characters[index]));
             await delay(25 + Math.random() * 15);
         }
         cursor.remove();
@@ -419,7 +470,7 @@
         const scanner = feedback.scanner || [];
         if (analyzedBubble) {
             analyzedBubble.classList.add('scanning');
-            await delay(prefersReducedMotion() ? 30 : 900);
+            await delay(prefersReducedMotion() ? 30 : (skipRequested ? 50 : 900));
             analyzedBubble.classList.remove('scanning');
             if (token !== flowToken) return;  // 对局已切换/退出：停止渲染
             highlightSignals(analyzedBubble, scanner);
@@ -642,6 +693,20 @@
         }
     }
 
+    function updateHeroStats(scenarios) {
+        const scenarioCount = scenarios.length;
+        const totalRounds = scenarios.reduce((sum, scenario) => sum + (Number(scenario.rounds) || 0), 0);
+        if (dom.statScenarioCount && scenarioCount > 0) dom.statScenarioCount.textContent = String(scenarioCount);
+        if (dom.statRoundCount && totalRounds > 0) dom.statRoundCount.textContent = String(totalRounds);
+    }
+
+    function autosizeReplyInput() {
+        const input = dom.replyInput;
+        input.style.height = 'auto';
+        const maxHeight = parseFloat(window.getComputedStyle(input).maxHeight);
+        input.style.height = `${Math.min(input.scrollHeight, maxHeight || input.scrollHeight)}px`;
+    }
+
     function setComposerEnabled(enabled) {
         dom.replyInput.disabled = !enabled;
         dom.sendReplyBtn.disabled = !enabled;
@@ -685,8 +750,13 @@
             return;
         }
         dom.connFailOverlay.classList.add('d-none');
-        await loadScenarios();
-        switchView('home');
+        if (battleState && !battleState.is_over) {
+            switchView('battle');
+            setComposerEnabled(true);
+        } else {
+            await loadScenarios();
+            switchView('home');
+        }
         showToast('游戏服务器已连接', 'success');
     }
 

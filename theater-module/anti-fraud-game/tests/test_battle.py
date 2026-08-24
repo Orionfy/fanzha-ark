@@ -60,7 +60,7 @@ def test_refuse_scoring_when_strategy_is_tempt() -> None:
     assert feedback["scammer_mood_delta"] == -15
 
 
-def test_suspect_recovers_hp_when_strategy_is_threat() -> None:
+def test_suspect_no_longer_heals_hp() -> None:
     # Given
     scenario = BATTLE_SCENARIOS["4"]
     battle_round = scenario["rounds"][0]
@@ -70,7 +70,8 @@ def test_suspect_recovers_hp_when_strategy_is_threat() -> None:
 
     # Then
     assert feedback["intent"] == "suspect"
-    assert feedback["hp_delta"] == 10
+    # 平衡性修正：质疑不再回血，防止「挂机乌龟流」成为最优策略
+    assert feedback["hp_delta"] == 0
 
 
 def test_comply_damages_hp_when_player_follows_instruction() -> None:
@@ -282,9 +283,136 @@ def test_tell_round_on_low_mood() -> None:
 
     # Then
     assert state.scammer_state.mood <= 25
-    assert "理赔流程" in state.scammer_msg
+    # 破绽轮台词必须来自该剧本的话术池变体（而非复读剧本原文）
+    allowed_messages = {"\n".join(group) for group in BATTLE_SCENARIOS["2"]["tell_pool"]}
+    assert state.scammer_msg in allowed_messages
     assert all(signal.severity == "high" for signal in state.signals)
     assert state.scammer_state.strategy_label == "语无伦次·破绽显露"
+
+
+# ---------- 回归：意图识别安全边界与平衡性 ----------
+
+def test_numeric_alert_patterns_require_boundaries() -> None:
+    # Given / When / Then：金额、单号中的「110」子串不得触发报警终局
+    assert classify_intent("转110元试试水") != "alert"
+    assert classify_intent("我的订单号是1102对吧") != "alert"
+    assert classify_intent("尾号1110的卡不行") != "alert"
+    # 真实报警意图仍需命中
+    assert classify_intent("我已经拨打96110了") == "alert"
+    assert classify_intent("我马上报警") == "alert"
+
+
+def test_weak_expose_words_removed_from_instant_win() -> None:
+    # 「呵呵」「笑死」这类口语弱词不再直接触发识破终局
+    assert classify_intent("呵呵") != "expose"
+    assert classify_intent("笑死我了") != "expose"
+
+
+def test_real_verification_code_submission_is_comply_with_leak() -> None:
+    # Given
+    scenario = BATTLE_SCENARIOS["2"]
+    battle_round = scenario["rounds"][1]
+
+    # When
+    feedback = evaluate_reply("验证码0485发给你了", scenario, battle_round)
+
+    # Then：真实提交验证码必须走顺从+泄露重罚，而不是质疑加分
+    assert feedback["intent"] == "comply"
+    assert feedback["hp_delta"] <= -40
+    assert any(signal["keyword"] == "敏感信息泄露" for signal in feedback["scanner"])
+
+
+def test_stall_no_longer_heals_hp() -> None:
+    # Given
+    scenario = BATTLE_SCENARIOS["1"]
+    battle_round = scenario["rounds"][0]
+
+    # When
+    feedback = evaluate_reply("等等，我再想想", scenario, battle_round)
+
+    # Then
+    assert feedback["intent"] == "stall"
+    assert feedback["hp_delta"] == 0
+
+
+def test_identity_negation_flip_respects_question_form() -> None:
+    # 疑问句式的身份否定是质疑，不应翻转为拒绝
+    assert classify_intent("你怎么证明你不是骗子") != "refuse"
+    assert classify_intent("你就是骗子吧") == "expose" or classify_intent("你是个骗子") == "expose"
+
+
+# ---------- 回归：引擎状态机边界 ----------
+
+def test_final_round_comply_loses_instead_of_win() -> None:
+    # Given：直接构造到收网轮的对局
+    battles.clear()
+    from battle.engine import BattleSession
+    import time as _time
+    scenario = BATTLE_SCENARIOS["1"]
+    last_index = len(scenario["rounds"]) - 1
+    session = BattleSession(
+        battle_id="test-final", scenario_id="1", player_name="测试者",
+        round_index=last_index, hp=100, mood=48, score=0,
+        last_active=_time.time(),
+    )
+    battles["test-final"] = session
+
+    # When：收网轮顺从转账
+    state = reply_to_battle("test-final", "好的我这就转账")
+
+    # Then：钱已转出是败局
+    assert state.result is not None
+    assert state.result.type == "lose_scammed"
+
+
+def test_alert_overrides_collapse_narrative() -> None:
+    # Given：连续拒绝把骗子心态压到崩溃线附近
+    battles.clear()
+    started = start_battle("2", "小北")
+    battle_id = started.battle_id
+    reply_to_battle(battle_id, "不用了，我没兴趣")
+
+    # When：心态已低时玩家主动报警
+    state = reply_to_battle(battle_id, "我要报警")
+
+    # Then：报警结局优先于被动崩溃叙事，且为保底 S 评级
+    assert state.result is not None
+    assert state.result.type == "win_alarm"
+    assert state.result.rating == "S"
+
+
+def test_all_stall_game_cannot_reach_s_rating() -> None:
+    # Given / When：全程拖延周旋打满7轮
+    battles.clear()
+    started = start_battle("1", "乌龟流")
+    battle_id = started.battle_id
+    state = None
+    for _ in range(10):
+        current = battles.get(battle_id)
+        if current is None or current.result is not None:
+            break
+        state = reply_to_battle(battle_id, "等等，我再考虑一下，明天再说")
+
+    # Then：零防御投入不允许拿到 S 级
+    if state is not None and state.result is not None and state.result.type == "win_expose":
+        assert state.result.rating != "S"
+
+
+def test_losing_summary_has_no_counter_kill_narrative() -> None:
+    # Given：先触发破绽轮，随后连续顺从败北
+    battles.clear()
+    started = start_battle("2", "小北")
+    battle_id = started.battle_id
+    reply_to_battle(battle_id, "不用了，我没兴趣")
+    reply_to_battle(battle_id, "我不需要")
+    current = battles[battle_id]
+    while current.result is None:
+        state = reply_to_battle(battle_id, "好，我这就转")
+        current = battles[battle_id]
+
+    # Then：败局复盘不得出现「完成反杀」的自相矛盾文案
+    assert current.result.type == "lose_scammed"
+    assert all("反杀" not in sentence for sentence in current.result.summary)
 
 
 # ---------- v2: 崩溃撤退 ----------
@@ -503,7 +631,12 @@ def run_intent_tests() -> None:
     test_expose_when_reply_names_scam()
     test_signal_scanner_when_message_contains_round_keywords()
     test_refuse_scoring_when_strategy_is_tempt()
-    test_suspect_recovers_hp_when_strategy_is_threat()
+    test_suspect_no_longer_heals_hp()
+    test_numeric_alert_patterns_require_boundaries()
+    test_weak_expose_words_removed_from_instant_win()
+    test_real_verification_code_submission_is_comply_with_leak()
+    test_stall_no_longer_heals_hp()
+    test_identity_negation_flip_respects_question_form()
     test_comply_damages_hp_when_player_follows_instruction()
     test_start_returns_complete_first_round_state()
     test_reply_advances_round_and_preserves_feedback()
@@ -519,6 +652,10 @@ def run_intent_tests() -> None:
     test_greed_jump_to_finale()
     test_tell_round_on_low_mood()
     test_collapse_early_win()
+    test_final_round_comply_loses_instead_of_win()
+    test_alert_overrides_collapse_narrative()
+    test_all_stall_game_cannot_reach_s_rating()
+    test_losing_summary_has_no_counter_kill_narrative()
     test_dynamic_achievement_zero_comply()
     test_dynamic_summary_mentions_round()
     test_reaction_prefixed_when_reply_refuse()

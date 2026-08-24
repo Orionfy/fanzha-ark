@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .engine import (
     PuzzleNotFoundError,
+    SoupBusyError,
     SoupFinishedError,
     SoupNotFoundError,
     delete_session,
@@ -67,6 +68,8 @@ async def ask(session_id: str, request: AskRequest):
         raise HTTPException(status_code=404, detail="解谜会话不存在") from error
     except SoupFinishedError as error:
         raise HTTPException(status_code=400, detail="本局已揭晓汤底，请重新开始") from error
+    except SoupBusyError as error:
+        raise HTTPException(status_code=409, detail="请求处理中，请稍候再试") from error
 
 
 @router.post("/{session_id}/hint")
@@ -78,6 +81,8 @@ async def hint(session_id: str):
         raise HTTPException(status_code=404, detail="解谜会话不存在") from error
     except SoupFinishedError as error:
         raise HTTPException(status_code=400, detail="本局已揭晓汤底，请重新开始") from error
+    except SoupBusyError as error:
+        raise HTTPException(status_code=409, detail="请求处理中，请稍候再试") from error
 
 
 @router.post("/{session_id}/reveal")
@@ -89,6 +94,8 @@ async def reveal(session_id: str):
         raise HTTPException(status_code=404, detail="解谜会话不存在") from error
     except SoupFinishedError as error:
         raise HTTPException(status_code=400, detail="本局已揭晓汤底，请重新开始") from error
+    except SoupBusyError as error:
+        raise HTTPException(status_code=409, detail="请求处理中，请稍候再试") from error
 
 
 @router.delete("/{session_id}", response_model=MessageResponse)

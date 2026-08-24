@@ -26,7 +26,9 @@ const TheaterAPI = (function () {
                 ...options,
                 signal: controller.signal,
                 headers: {
-                    'Content-Type': 'application/json',
+                    // 仅 POST 等带 body 的请求设置 Content-Type；
+                    // GET 带上它会被判定为非简单请求而触发 CORS 预检，白白多一次往返
+                    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
                     ...(options.headers || {})
                 }
             });
