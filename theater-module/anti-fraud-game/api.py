@@ -6,8 +6,8 @@ from scenarios import scenarios
 from battle.router import router as battle_router
 from battle.engine import cleanup_expired_battles
 from soup.router import router as soup_router
-from knowledge.router import router as knowledge_router
 from soup.engine import cleanup_expired_soup_sessions
+from knowledge.router import router as knowledge_router
 import asyncio
 import time
 import uuid
@@ -15,10 +15,11 @@ import uuid
 app = FastAPI(title="反诈骗游戏API", description="提供反诈骗游戏的API接口")
 
 # CORS：允许前端（Live Server / 静态站点）跨域调用
+# 注意：allow_origins=["*"] 时不可开启 allow_credentials（CORS 规范禁止该组合），
+# 本应用不使用 cookie，无需凭证。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -32,6 +33,9 @@ games = {}
 # 会话过期清理：30 分钟不活跃的会话由后台任务回收，防止内存泄漏
 SESSION_TTL_SECONDS = 30 * 60
 CLEANUP_INTERVAL_SECONDS = 5 * 60
+
+# 保存后台任务引用，避免 asyncio.create_task 的返回值无人持有时任务可能被 GC
+_cleanup_task = None
 
 
 async def _cleanup_expired_sessions():
@@ -51,7 +55,8 @@ async def _cleanup_expired_sessions():
 
 @app.on_event("startup")
 async def _start_cleanup_task():
-    asyncio.create_task(_cleanup_expired_sessions())
+    global _cleanup_task
+    _cleanup_task = asyncio.create_task(_cleanup_expired_sessions())
 
 # 性别 / 身份 中文映射
 GENDER_MAP = {"1": "男", "2": "女", "3": "其他"}
@@ -208,6 +213,11 @@ async def get_node(game_id: str):
     return build_node_response(game_id)
 
 
+# processing 标志的并发安全性说明：
+# 临界区内（置 True 到 finally 复位）不得加入任何 await——一旦有 await，
+# check-then-act 就会成为真正的竞态窗口；当前无 await，async handler 在
+# 事件循环中原子执行，processing 检查+置位不会被打断，因此 409 分支
+# 实际不可达，仅作为未来引入 IO 时的防护保留。
 @app.post("/api/game/{game_id}/advance", response_model=GameState)
 async def advance_node(game_id: str):
     """推进 auto 节点到 next，返回新节点"""
@@ -247,6 +257,8 @@ async def make_choice(game_id: str, choice: Choice):
 
         selected = choice.choice
         if selected == "报警":
+            if not node.get("allow_alert", False):
+                raise HTTPException(status_code=400, detail="当前节点不支持报警")
             alert_node = scenario_meta.get("alert_node")
             if not alert_node:
                 raise HTTPException(status_code=400, detail="当前场景不支持报警")
