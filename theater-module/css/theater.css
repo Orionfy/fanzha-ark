@@ -817,7 +817,6 @@ body.in-game #starCanvas { opacity: 0.4; }
     flex: 1;
     padding: var(--spacing-lg);
     overflow-y: auto;
-    scroll-behavior: smooth;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -935,8 +934,8 @@ body.in-game #starCanvas { opacity: 0.4; }
     display: block;
     max-width: 288px;
     width: 100%;
-    max-height: 300px;
-    object-fit: contain;
+    height: 210px;
+    object-fit: cover;
     border-radius: calc(var(--radius-md) - 4px);
     background: rgba(148, 163, 184, 0.08);
     opacity: 0;
@@ -945,6 +944,17 @@ body.in-game #starCanvas { opacity: 0.4; }
 }
 .bubble-image .img-real.loaded {
     opacity: 1;
+}
+/* 时间戳徽标：随对白气泡呈现（如 20:51） */
+.msg-time-chip {
+    align-self: center;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--gray-400, #94a3b8);
+    background: rgba(100, 116, 139, 0.14);
+    padding: 2px 10px;
+    border-radius: var(--radius-full, 999px);
+    white-space: nowrap;
 }
 .bubble-image .img-real:hover {
     transform: scale(1.02);
