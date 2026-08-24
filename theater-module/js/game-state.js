@@ -14,14 +14,12 @@ const GameState = (function () {
         isEnded: false
     };
 
-    // 推进深度计数：允许 auto→auto 链嵌套推进，并防外部并发重复推进
-    let advanceDepth = 0;
-
     // 会话令牌：start/exit 时递增；旧的渲染循环（打字机/auto 推进）检测到令牌变化即中止
     let renderToken = 0;
 
-    // 报警请求进行中标志（防止连点重复发送）
-    let isAlerting = false;
+    // 提交互斥标志：选项/报警/推进任一进行中时阻止新的提交
+    //（链式 auto 推进属于同一操作的延续，由 renderNode 在链式调用前先释放）
+    let busy = false;
 
     // DOM 引用（init 时绑定）
     let dom = {};
@@ -48,12 +46,14 @@ const GameState = (function () {
      */
     async function start(userInfo, scenarioName) {
         renderToken++;  // 使旧的渲染循环（如有）失效
+        const token = renderToken;
         state.scenarioId = userInfo.scenario_id;
         state.scenarioName = scenarioName;
         state.isEnded = false;
-        advanceDepth = 0;
+        busy = false;
 
         const data = await TheaterAPI.startGame(userInfo);
+        if (token !== renderToken) return;  // 等待期间发生了退出/重开，旧响应不得污染新会话
         state.gameId = data.game_id;
         dom.gameScenarioName.textContent = data.scenario_name || scenarioName;
 
@@ -82,12 +82,9 @@ const GameState = (function () {
             return;
         }
 
-        // 报警按钮显隐
-        if (node.allow_alert) {
-            dom.alertBtn.classList.remove('d-none');
-        } else {
-            dom.alertBtn.classList.add('d-none');
-        }
+        // 报警按钮显隐；打字期间禁用，播完按节点配置恢复
+        syncAlertBtn();
+        dom.alertBtn.disabled = true;
 
         // 隐藏选项区
         dom.choiceBar.classList.add('d-none');
@@ -121,6 +118,9 @@ const GameState = (function () {
         // 会话已切换：不再分发后续节点逻辑
         if (token !== renderToken) return;
 
+        // 播完恢复报警按钮可用
+        dom.alertBtn.disabled = false;
+
         // 根据节点类型分发
         if (node.type === 'auto' && node.next) {
             // auto 节点：显示"剧情推进中"，等待后自动 advance
@@ -128,6 +128,7 @@ const GameState = (function () {
             await sleep(config.autoNextDelay);
             dom.autoHint.classList.add('d-none');
             if (!state.isEnded && token === renderToken) {
+                busy = false;  // 链式推进是同一操作的延续，先释放再由 advance 重新持有
                 await advance();
             }
         } else if (node.type === 'choice') {
@@ -162,19 +163,35 @@ const GameState = (function () {
     }
 
     /**
+     * 按当前节点配置同步报警按钮显隐
+     */
+    function syncAlertBtn() {
+        const allow = !!(state.currentNode && state.currentNode.allow_alert && !state.isEnded);
+        dom.alertBtn.classList.toggle('d-none', !allow);
+    }
+
+    /**
      * 提交数字选择
      */
     async function submitChoice(choiceId) {
-        if (!state.gameId || state.isEnded) return;
+        if (!state.gameId || state.isEnded || busy) return;
+        busy = true;
+        const token = renderToken;  // 捕获会话令牌，await 后校验防旧响应污染新会话
+        const gid = state.gameId;
         try {
             dom.choiceBar.classList.add('d-none');
-            const node = await TheaterAPI.makeChoice(state.gameId, choiceId);
+            const node = await TheaterAPI.makeChoice(gid, choiceId);
+            if (token !== renderToken || state.gameId !== gid) return;
             await renderNode(node);
         } catch (err) {
+            // 会话已切换：旧选项条属于已结束的会话，放弃恢复
+            if (token !== renderToken || state.gameId !== gid) return;
             handleApiError(err);
             // 重新显示选项让用户再选
             dom.choiceBar.classList.remove('d-none');
             dom.choiceBar.querySelectorAll('.choice-btn').forEach(b => b.disabled = false);
+        } finally {
+            if (token === renderToken) busy = false;
         }
     }
 
@@ -182,17 +199,23 @@ const GameState = (function () {
      * 提交报警
      */
     async function submitAlert() {
-        if (!state.gameId || state.isEnded || isAlerting) return;
-        isAlerting = true;
-        // 显示用户"报警"消息
-        ChatRenderer.appendMessage(dom.chatBody, { role: 'user', text: '我要报警！' });
+        if (!state.gameId || state.isEnded || busy) return;
+        busy = true;
+        const token = renderToken;
+        const gid = state.gameId;
+        // 乐观气泡：先展示"报警"，请求失败时回滚移除
+        const optimisticEl = ChatRenderer.appendMessage(dom.chatBody, { role: 'user', text: '我要报警！' });
         try {
-            const node = await TheaterAPI.makeChoice(state.gameId, '报警');
+            const node = await TheaterAPI.makeChoice(gid, '报警');
+            if (token !== renderToken || state.gameId !== gid) return;
             await renderNode(node);
         } catch (err) {
+            optimisticEl.remove();
+            if (token !== renderToken || state.gameId !== gid) return;
             handleApiError(err);
+            syncAlertBtn();  // 按 currentNode.allow_alert 恢复按钮显隐
         } finally {
-            isAlerting = false;
+            if (token === renderToken) busy = false;
         }
     }
 
@@ -202,18 +225,22 @@ const GameState = (function () {
      * 嵌套调用不会被拦截），同时防止外部并发重复推进。
      */
     async function advance() {
-        if (!state.gameId || state.isEnded) return;
-        advanceDepth++;
+        if (!state.gameId || state.isEnded || busy) return;
+        busy = true;
+        const token = renderToken;
+        const gid = state.gameId;
         try {
-            const node = await TheaterAPI.advanceNode(state.gameId);
+            const node = await TheaterAPI.advanceNode(gid);
+            if (token !== renderToken || state.gameId !== gid) return;
             await renderNode(node);
         } catch (err) {
-            // 某些节点不支持 advance（choice 节点），静默处理
+            // 会话已切换或某些节点不支持 advance（choice 节点），静默处理
+            if (token !== renderToken || state.gameId !== gid) return;
             if (!err.message.includes('不支持自动推进')) {
                 handleApiError(err);
             }
         } finally {
-            advanceDepth--;
+            if (token === renderToken) busy = false;
         }
     }
 
@@ -256,7 +283,7 @@ const GameState = (function () {
      */
     async function exit() {
         renderToken++;  // 中止仍在进行的打字机与 auto 推进循环
-        isAlerting = false;
+        busy = false;
         const gameId = state.gameId;   // 捕获旧会话 ID
         state.gameId = null;           // 同步重置，避免"退出后立即重开"被旧请求的延续覆盖
         state.isEnded = false;
@@ -264,6 +291,19 @@ const GameState = (function () {
         if (gameId) {
             await TheaterAPI.endGame(gameId);
         }
+    }
+
+    /**
+     * 连接恢复后续接渲染当前节点：
+     * 后端会话仍存活时由重试逻辑调用，避免强制回首页丢弃进度。
+     * 以新令牌整体重渲染，中止可能残留的旧打字/推进循环。
+     */
+    async function resume(node) {
+        renderToken++;
+        busy = false;
+        state.isEnded = false;
+        ChatRenderer.clear(dom.chatBody);
+        await renderNode(node);
     }
 
     function sleep(ms) {
@@ -276,6 +316,7 @@ const GameState = (function () {
         submitChoice,
         submitAlert,
         exit,
+        resume,
         state,
         config,
         set onEnding(fn) { state.onEnding = fn; },
