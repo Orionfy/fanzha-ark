@@ -1,3 +1,5 @@
+import time
+
 from core.utils import slow_type, show_typing, wait_for_input, print_header, display_image, set_chapter, colored
 
 # ------------------ 主游戏循环 ------------------
@@ -46,13 +48,12 @@ def run_game(scenario_info, chapter_name=""):
                     elif "你：" in line:
                         # 用户发言
                         slow_type(line, is_user=True)
-                    elif line.startswith("（") or line.startswith("（") or "心想：" in line or "提示：" in line:
+                    elif line.startswith("（") or "心想：" in line or "提示：" in line:
                         # 旁白内容
                         slow_type(line, is_user=False, is_narration=True)
                     else:
                         # 系统提示或其他内容
                         slow_type(line, is_user=False)
-                    import time
                     time.sleep(0.3)  # 句子间停顿
         # 处理不同类型节点
         if node["type"] == "auto":
@@ -79,9 +80,12 @@ def run_game(scenario_info, chapter_name=""):
             if choice == '报警':
                 # 显示用户输入的"报警"
                 slow_type("你：报警", is_user=True)
-                # 报警跳转目标由场景元数据提供
+                # 报警跳转目标由场景元数据提供；为空则停留原节点
                 alert_node = scenario_info.get("alert_node")
-                current_node = alert_node if alert_node else "23"
+                if not alert_node:
+                    print("当前场景不支持在此报警")
+                else:
+                    current_node = alert_node
             else:
                 # 显示用户选择的选项
                 selected_text = node["choices"][choice-1][0]
