@@ -6,6 +6,7 @@ from scenarios import scenarios
 from battle.router import router as battle_router
 from battle.engine import cleanup_expired_battles
 from soup.router import router as soup_router
+from knowledge.router import router as knowledge_router
 from soup.engine import cleanup_expired_soup_sessions
 import asyncio
 import time
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 app.include_router(battle_router)
 app.include_router(soup_router)
+app.include_router(knowledge_router)
 
 # 游戏状态存储（内存）
 games = {}
