@@ -407,7 +407,7 @@ body.in-battle #starCanvas { opacity: 0.35; }
 .rating-D { background: var(--ink-400); color: var(--white); }
 .rating-F { background: var(--danger-500); color: var(--white); }
 
-.chat-body { flex: 1; min-height: 20rem; padding: var(--space-5) var(--space-4) var(--space-20); display: flex; flex-direction: column; gap: var(--space-3); overflow-y: auto; scroll-behavior: smooth; scroll-padding-bottom: 9rem; }
+.chat-body { flex: 1; min-height: 20rem; padding: var(--space-5) var(--space-4) var(--space-20); display: flex; flex-direction: column; gap: var(--space-3); overflow-y: auto; scroll-padding-bottom: 9rem; }
 .round-progress { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-4); border-bottom: 0.0625rem solid var(--border-subtle); background: var(--surface-glass); }
 .round-progress .round-node { width: 1.5rem; height: 1.5rem; flex: 0 0 auto; display: grid; place-items: center; border: 0.0625rem solid var(--border-subtle); border-radius: var(--radius-full); color: var(--text-muted); background: var(--surface-muted); font-size: var(--font-xs); font-weight: 700; transition: all var(--duration-base) var(--ease-out); }
 .round-progress .round-node .round-node-label { display: grid; place-items: center; width: 100%; height: 100%; border-radius: inherit; }
