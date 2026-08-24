@@ -223,7 +223,8 @@ def reply_to_battle(battle_id: str, text: str) -> BattleState:
     )
 
     intent = feedback["intent"]
-    if mood <= COLLAPSE_THRESHOLD:
+    # 玩家主动报警/识破时走主动终局叙事，崩溃判定不得覆盖（alert/expose 优先）
+    if mood <= COLLAPSE_THRESHOLD and intent not in ("alert", "expose"):
         result = _result_for("win_expose", scenario, updated, collapse=True)
         updated = replace(updated, result=result, final_message=COLLAPSE_MSG)
     else:
@@ -239,8 +240,13 @@ def reply_to_battle(battle_id: str, text: str) -> BattleState:
                     result = _result_for("lose_scammed", scenario, updated)
                     updated = replace(updated, result=result, final_message=LOSE_MSG)
                 elif session.round_index >= len(scenario["rounds"]) - 1:
-                    result = _result_for("win_expose", scenario, updated)
-                    updated = replace(updated, result=result)
+                    if intent == "comply":
+                        # 收网轮转账 = 钱已转出，是败局而非「识破骗局」
+                        result = _result_for("lose_scammed", scenario, updated)
+                        updated = replace(updated, result=result, final_message=LOSE_MSG)
+                    else:
+                        result = _result_for("win_expose", scenario, updated)
+                        updated = replace(updated, result=result)
                 else:
                     new_round = session.round_index + 1
                     jump = False
@@ -253,7 +259,10 @@ def reply_to_battle(battle_id: str, text: str) -> BattleState:
                         told = True
                         told_round_no = scenario["rounds"][new_round]["no"]
                     if jump:
-                        feedback = {**feedback, "comment": GREED_COMMENT}
+                        # 泄露警告优先于贪婪跳转播报：止付提示不能被覆盖
+                        leaked = "敏感信息泄露" in [s["keyword"] for s in feedback["scanner"]]
+                        if not leaked:
+                            feedback = {**feedback, "comment": GREED_COMMENT}
                     updated = replace(
                         updated, round_index=new_round, told=told,
                         told_round_no=told_round_no, feedback=feedback,
@@ -396,7 +405,11 @@ def _dynamic_summary(
         if len(comply_rounds) > 2:
             sentences.append(f"你先后{len(comply_rounds)}次顺从，骗子步步加码，损失像滚雪球一样扩大。")
     if session.told_round_no is not None:
-        sentences.append(f"第{session.told_round_no}轮骗子心态崩溃、破绽百出，你抓住机会完成反杀。")
+        # 「完成反杀」仅属于胜局叙事：败局/放弃时破绽轮只是未把握的机会
+        if result_type in ("win_expose", "win_alarm"):
+            sentences.append(f"第{session.told_round_no}轮骗子心态崩溃、破绽百出，你抓住机会完成反杀。")
+        else:
+            sentences.append(f"第{session.told_round_no}轮骗子一度心态崩溃露出破绽，可惜没能坚持把握。")
     if result_type == "win_alarm":
         sentences.append("及时报警让骗局止步，也切断了骗子继续作案的可能。")
     elif result_type == "win_expose":
@@ -444,7 +457,8 @@ def _result_for(
         case "win_alarm":
             title, rating, label = "警灯亮起·联动反诈", "S", "反诈卫士"
         case "win_expose":
-            if score >= 180 or hp >= 70:
+            # 高血量必须搭配有效防御得分才能拿 S，防止全程挂机凭满血通关
+            if score >= 180 or (hp >= 70 and score >= 90):
                 rating, label = "S", "反诈卫士"
             elif score >= 100 or hp >= 50:
                 rating, label = "A", "识诈达人"
